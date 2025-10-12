@@ -178,8 +178,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					query := strings.TrimSpace(m.textInput.Value())
 					m.history.RecordSelectionWithQuery(query, m.selected)
 					if err := m.history.Save(); err != nil {
-					// Silently fail - don't prevent selection
-				}
+						// Silently fail - don't prevent selection
+					}
 				}
 			}
 			m.quitting = true

@@ -247,7 +247,7 @@ func (h *History) Save() error {
 	h.mu.RUnlock()
 
 	if err != nil {
-		_ = file.Close()      // Cleanup on error; ignore Close error
+		_ = file.Close()        // Cleanup on error; ignore Close error
 		_ = os.Remove(tempPath) // Cleanup temp file; ignore Remove error
 		return fmt.Errorf("failed to encode history: %w", err)
 	}
