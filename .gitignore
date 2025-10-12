@@ -1,0 +1,47 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+glf
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Local configuration
+.glf.yaml
+.glf.local.yaml
+cache/
+
+# Temporary files
+tmp/
+
+# Claude Code and Serena MCP
+.claude/
+.serena/
+CLAUDE.md
+
+# Project management
+/backlog/
