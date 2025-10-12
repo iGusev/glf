@@ -2,14 +2,13 @@
 
 ⚡ Fast CLI tool for instant fuzzy search across self-hosted GitLab projects using local cache.
 
-![Phase Status](https://img.shields.io/badge/Phase%204-Complete-success)
 ![Go Version](https://img.shields.io/badge/Go-1.25+-blue)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ## ✨ Features
 
 - ⚡ **Lightning-fast fuzzy search** with local caching
-- 🎨 **Interactive TUI** with Monokai Pro color scheme and fzf-like UI
+- 🎨 **Interactive TUI** with adaptive color scheme
 - 🔍 **Multi-token search** - Search with spaces: `"api storage"` finds projects with both terms
 - 🧠 **Smart ranking** - Frequently selected projects automatically appear first
 - 🔄 **Parallel pagination** - 5-8x faster sync with concurrent API requests
@@ -78,6 +77,13 @@ export GLF_GITLAB_TOKEN="your-token-here"
 export GLF_GITLAB_TIMEOUT=30  # optional
 ```
 
+### Creating a Personal Access Token
+
+1. Go to your GitLab instance
+2. Navigate to **User Settings** → **Access Tokens**
+3. Create a new token with `read_api` scope
+4. Copy the token and use it in `glf config`
+
 ### Sync Projects
 
 Fetch projects from GitLab and build local cache:
@@ -102,6 +108,9 @@ glf backend
 - `↑/↓` - Navigate through results
 - `Enter` - Select project
 - `Ctrl+R` - Manually refresh/sync projects from GitLab
+- `Ctrl+X` - Exclude/un-exclude project from search results
+- `Ctrl+H` - Toggle showing excluded projects
+- `?` - Toggle help text
 - `Esc`/`Ctrl+C` - Quit
 - Type to filter projects in real-time
 
@@ -119,7 +128,6 @@ glf backend
 glf [query]           Search projects (default: interactive TUI)
 glf config            Configure GitLab connection
 glf sync              Sync projects from GitLab to local cache
-glf find <query>      Search projects (alias for default)
 glf --help            Show help
 ```
 
@@ -127,6 +135,7 @@ glf --help            Show help
 
 ```
 -v, --verbose         Enable verbose logging
+--scores              Show score breakdown for debugging ranking
 ```
 
 ### Examples
@@ -145,6 +154,9 @@ glf user auth service  # Finds projects with all three terms
 # Verbose mode for debugging
 glf sync --verbose
 
+# Show ranking scores for debugging
+glf --scores
+
 # Configure GitLab connection
 glf config
 ```
@@ -156,6 +168,7 @@ GLF learns your selection patterns and automatically boosts frequently used proj
 - **First time**: Search `"api"` → Select `myorg/api/storage`
 - **Next time**: Search `"api"` → `myorg/api/storage` appears **first**!
 - The more you select a project, the higher it ranks
+- Query-specific boost: projects selected for specific search terms rank higher for those terms
 - Recent selections get extra boost (last 7 days)
 
 History is stored in `~/.cache/glf/history.gob` and persists across sessions.
@@ -186,6 +199,9 @@ make release
 # Run tests
 make test
 
+# Run tests with coverage
+make test-coverage
+
 # Format code
 make fmt
 
@@ -198,18 +214,17 @@ make lint
 ```
 glf/
 ├── cmd/glf/              # CLI entry point
-│   ├── main.go           # Main command and search logic
-│   ├── sync.go           # Sync command
-│   ├── config_cmd.go     # Config command
-│   └── find.go           # Find command (alias)
+│   └── main.go           # Main command and search logic
 ├── internal/
-│   ├── cache/            # Cache management
 │   ├── config/           # Configuration handling
 │   ├── gitlab/           # GitLab API client
 │   ├── history/          # Selection frequency tracking
+│   ├── index/            # Description indexing (Bleve)
 │   ├── logger/           # Logging utilities
-│   ├── search/           # Fuzzy search with multi-token support
-│   └── tui/              # Terminal UI (Bubbletea)
+│   ├── search/           # Combined fuzzy + full-text search
+│   ├── sync/             # Sync logic
+│   ├── tui/              # Terminal UI (Bubbletea)
+│   └── types/            # Shared types
 ├── Makefile              # Build automation
 └── README.md
 ```
@@ -230,12 +245,25 @@ glf/
 |--------|-------------|---------|----------|
 | `cache.dir` | Cache directory path | `~/.cache/glf` | No |
 
-### Creating a Personal Access Token
+### Exclusions
 
-1. Go to your GitLab instance
-2. Navigate to **User Settings** → **Access Tokens**
-3. Create a new token with `read_api` scope
-4. Copy the token and use it in `glf config`
+| Option | Description | Default | Required |
+|--------|-------------|---------|----------|
+| `exclusions` | List of project paths to exclude | `[]` | No |
+
+Example with exclusions:
+
+```yaml
+gitlab:
+  url: "https://gitlab.example.com"
+  token: "your-token"
+
+exclusions:
+  - "archived/old-project"
+  - "deprecated/legacy-api"
+```
+
+Excluded projects can be toggled with `Ctrl+X` in the TUI or hidden/shown with `Ctrl+H`.
 
 ## 🐛 Troubleshooting
 
@@ -273,20 +301,7 @@ glf config
 cat ~/.config/glf/config.yaml
 ```
 
-## 🎨 Color Scheme
-
-GLF uses the **Monokai Pro Filter Spectrum** color scheme for a modern and comfortable visual experience:
-
-- Cyan: Titles and highlights
-- Orange/Peach: Prompts
-- Pink/Red: Selection indicator (fzf-style)
-- Green: Selected items
-- Yellow: Filtered results counter
-- White/Light Gray: Normal text
-
 ## ⚡ Performance
-
-### Parallel Pagination
 
 GLF uses intelligent parallel pagination to dramatically improve sync performance:
 
@@ -312,35 +327,18 @@ $ glf sync --verbose
 ✓ Successfully fetched 648 projects
 ```
 
-See [PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md) for detailed technical analysis.
-
-## 📚 Technical Documentation
-
-For in-depth implementation details:
-
-- **[MULTI_TOKEN_SEARCH.md](MULTI_TOKEN_SEARCH.md)** - Multi-token search algorithm and performance analysis
-- **[FREQUENCY_MEMORY_FEATURE.md](FREQUENCY_MEMORY_FEATURE.md)** - Selection frequency tracking and smart ranking implementation
-- **[PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)** - Parallel pagination and sync optimization
-
 ## 📝 License
 
-TBD
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
-
-## 📊 Project Phases
-
-- ✅ **Phase 0**: Foundation (Project setup, dependencies)
-- ✅ **Phase 1**: MVP (Basic sync, search, cache)
-- ✅ **Phase 2**: Interactive TUI (Fuzzy finder interface)
-- ✅ **Phase 3**: Polish (Config wizard, logging, cross-platform builds)
-- ✅ **Phase 4**: Performance (Parallel pagination, non-blocking sync, fzf-like UI)
 
 ## 🙏 Acknowledgments
 
 - Built with [Cobra](https://github.com/spf13/cobra) for CLI framework
 - UI powered by [Bubbletea](https://github.com/charmbracelet/bubbletea)
 - Styling with [Lipgloss](https://github.com/charmbracelet/lipgloss)
+- Search indexing with [Bleve](https://github.com/blevesearch/bleve)
 - GitLab API via [go-gitlab](https://github.com/xanzy/go-gitlab)
