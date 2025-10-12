@@ -33,7 +33,7 @@ Thumbs.db
 # Local configuration
 .glf.yaml
 .glf.local.yaml
-cache/
+/cache/
 
 # Temporary files
 tmp/
