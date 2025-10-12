@@ -117,7 +117,10 @@ func (h *History) LoadAsync() <-chan error {
 		if removed > 0 {
 			// Save after cleanup to persist the changes
 			go func() {
-				_ = h.Save()
+				if err := h.Save(); err != nil {
+					// Can't use logger here as it may not be initialized
+					// Silently fail - this is best-effort background cleanup
+				}
 			}()
 		}
 

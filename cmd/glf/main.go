@@ -96,7 +96,9 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	allProjects, err := descIndex.GetAllProjects()
 	if err != nil {
-		descIndex.Close()
+		if closeErr := descIndex.Close(); closeErr != nil {
+			logger.Debug("Failed to close index: %v", closeErr)
+		}
 		return fmt.Errorf("failed to load projects: %w", err)
 	}
 
@@ -114,7 +116,9 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	}
 
 	// Close index before launching TUI (TUI will open it again)
-	descIndex.Close()
+	if err := descIndex.Close(); err != nil {
+		logger.Debug("Failed to close index: %v", err)
+	}
 	// Launch interactive TUI with optional initial query
 	return runInteractive(allProjects, query, cfg)
 }
@@ -154,7 +158,9 @@ func runAutoGo(projects []types.Project, query string, cfg *config.Config, descI
 	// Record selection in history
 	if hist != nil {
 		hist.RecordSelectionWithQuery(query, firstProject.Path)
-		_ = hist.Save()
+		if err := hist.Save(); err != nil {
+			logger.Debug("Failed to save history: %v", err)
+		}
 	}
 
 	// Construct URL

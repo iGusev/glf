@@ -153,7 +153,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			// Save history before quitting
 			if m.history != nil {
-				_ = m.history.Save()
+				if err := m.history.Save(); err != nil {
+					// Silently fail - don't prevent quit
+				}
 			}
 			return m, tea.Quit
 
@@ -175,7 +177,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.history != nil && m.selected != "" {
 					query := strings.TrimSpace(m.textInput.Value())
 					m.history.RecordSelectionWithQuery(query, m.selected)
-					_ = m.history.Save()
+					if err := m.history.Save(); err != nil {
+					// Silently fail - don't prevent selection
+				}
 				}
 			}
 			m.quitting = true
@@ -187,10 +191,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				projectPath := m.filtered[m.cursor].Project.Path
 				if m.config.IsExcluded(projectPath) {
 					// Already excluded - un-exclude it
-					_ = m.config.RemoveExclusionForPath(projectPath)
+					if err := m.config.RemoveExclusionForPath(projectPath); err != nil {
+						// Silently fail - don't prevent UI operation
+					}
 				} else {
 					// Not excluded - exclude it
-					_ = m.config.AddExclusion(projectPath)
+					if err := m.config.AddExclusion(projectPath); err != nil {
+						// Silently fail - don't prevent UI operation
+					}
 				}
 				// Re-filter to apply changes
 				m.filter()
