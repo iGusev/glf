@@ -225,6 +225,12 @@ func (h *History) Save() error {
 
 	// Create temporary file for atomic write
 	tempPath := cleanPath + ".tmp"
+	// #nosec G304 -- Path constructed with filepath.Clean(configPath) + ".tmp"
+	// User controls config dir in their own config file - not a security issue:
+	// 1. Base path is cleaned with filepath.Clean to prevent traversal
+	// 2. Only ".tmp" extension is appended (fixed suffix, not user-controlled)
+	// 3. No privilege escalation (runs with user's own permissions)
+	// 4. Used for atomic write pattern (temp file + rename)
 	file, err := os.Create(tempPath)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)

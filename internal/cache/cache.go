@@ -150,6 +150,11 @@ func (c *Cache) SaveLastSyncTime(t time.Time) error {
 func (c *Cache) LoadLastSyncTime() (time.Time, error) {
 	timestampPath := filepath.Join(c.dir, ".last_sync_time")
 
+	// #nosec G304 -- Path constructed with filepath.Join(userConfigDir, fixedFilename)
+	// User controls config dir in their own config file - not a security issue:
+	// 1. No privilege escalation (runs with user's own permissions)
+	// 2. Filename is fixed ".last_sync_time" (not user-controlled)
+	// 3. User can already read their own files directly with cat/less
 	data, err := os.ReadFile(timestampPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -188,6 +193,11 @@ func (c *Cache) SaveLastFullSyncTime(t time.Time) error {
 func (c *Cache) LoadLastFullSyncTime() (time.Time, error) {
 	timestampPath := filepath.Join(c.dir, ".last_full_sync_time")
 
+	// #nosec G304 -- Path constructed with filepath.Join(userConfigDir, fixedFilename)
+	// User controls config dir in their own config file - not a security issue:
+	// 1. No privilege escalation (runs with user's own permissions)
+	// 2. Filename is fixed ".last_full_sync_time" (not user-controlled)
+	// 3. User can already read their own files directly with cat/less
 	data, err := os.ReadFile(timestampPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -226,6 +236,11 @@ func (c *Cache) SaveUsername(username string) error {
 func (c *Cache) LoadUsername() (string, error) {
 	usernamePath := filepath.Join(c.dir, ".username")
 
+	// #nosec G304 -- Path constructed with filepath.Join(userConfigDir, fixedFilename)
+	// User controls config dir in their own config file - not a security issue:
+	// 1. No privilege escalation (runs with user's own permissions)
+	// 2. Filename is fixed ".username" (not user-controlled)
+	// 3. User can already read their own files directly with cat/less
 	data, err := os.ReadFile(usernamePath)
 	if err != nil {
 		if os.IsNotExist(err) {

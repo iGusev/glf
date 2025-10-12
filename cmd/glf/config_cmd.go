@@ -95,7 +95,10 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	timeout := 30
 	if timeoutStr != "" {
-		fmt.Sscanf(timeoutStr, "%d", &timeout)
+		if _, err := fmt.Sscanf(timeoutStr, "%d", &timeout); err != nil {
+			fmt.Printf("Warning: invalid timeout '%s', using default %d seconds\n", timeoutStr, 30)
+			timeout = 30
+		}
 	} else if existingCfg.GitLab.Timeout > 0 {
 		timeout = existingCfg.GitLab.Timeout
 	}
