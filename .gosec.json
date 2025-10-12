@@ -1,0 +1,12 @@
+{
+  "severity": "medium",
+  "confidence": "medium",
+  "exclude": [
+    "G104"
+  ],
+  "exclude-generated": true,
+  "exclude-dirs": [
+    "vendor",
+    "test"
+  ]
+}
