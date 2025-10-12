@@ -74,7 +74,12 @@ func (h *History) LoadAsync() <-chan error {
 			errCh <- fmt.Errorf("failed to open history file: %w", err)
 			return
 		}
-		defer file.Close() //nolint:errcheck // Deferred close on read-only file
+		defer func() {
+			if err := file.Close(); err != nil {
+				// Ignore close error in async load
+				_ = err
+			}
+		}()
 
 		decoder := gob.NewDecoder(file)
 
@@ -85,7 +90,10 @@ func (h *History) LoadAsync() <-chan error {
 		var data historyData
 		if err := decoder.Decode(&data); err != nil {
 			// Failed - might be old format, try decoding just selections map
-			_, _ = file.Seek(0, 0) //nolint:errcheck // Reset to beginning; ignore error (best effort)
+			if _, seekErr := file.Seek(0, 0); seekErr != nil {
+				// Best effort reset; if it fails, decoder will fail below
+				_ = seekErr
+			}
 			decoder = gob.NewDecoder(file)
 
 			var oldSelections map[string]SelectionInfo
@@ -248,19 +256,31 @@ func (h *History) Save() error {
 	h.mu.RUnlock()
 
 	if err != nil {
-		_ = file.Close()        //nolint:errcheck // Cleanup on error; ignore Close error
-		_ = os.Remove(tempPath) //nolint:errcheck // Cleanup temp file; ignore Remove error
+		if closeErr := file.Close(); closeErr != nil {
+			// Ignore close error on error path
+			_ = closeErr
+		}
+		if removeErr := os.Remove(tempPath); removeErr != nil {
+			// Ignore remove error on error path
+			_ = removeErr
+		}
 		return fmt.Errorf("failed to encode history: %w", err)
 	}
 
 	if err := file.Close(); err != nil {
-		_ = os.Remove(tempPath) //nolint:errcheck // Cleanup temp file; ignore Remove error
+		if removeErr := os.Remove(tempPath); removeErr != nil {
+			// Ignore remove error on error path
+			_ = removeErr
+		}
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
 	// Atomic rename
 	if err := os.Rename(tempPath, cleanPath); err != nil {
-		_ = os.Remove(tempPath) //nolint:errcheck // Cleanup temp file; ignore Remove error
+		if removeErr := os.Remove(tempPath); removeErr != nil {
+			// Ignore remove error on error path
+			_ = removeErr
+		}
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 

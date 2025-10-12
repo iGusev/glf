@@ -1,3 +1,4 @@
+// Configuration management commands for GLF
 package main
 
 import (

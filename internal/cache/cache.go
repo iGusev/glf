@@ -45,7 +45,12 @@ func (c *Cache) WriteProjects(projects []types.Project) error {
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}
-	defer f.Close() //nolint:errcheck // Deferred close on read-only file
+	defer func() {
+		if err := f.Close(); err != nil {
+			// Log error but don't override the return error
+			_ = err
+		}
+	}()
 
 	writer := bufio.NewWriter(f)
 	for _, project := range projects {
@@ -76,7 +81,12 @@ func (c *Cache) ReadProjects() ([]types.Project, error) {
 		}
 		return nil, fmt.Errorf("failed to open cache file: %w", err)
 	}
-	defer f.Close() //nolint:errcheck // Deferred close on read-only file
+	defer func() {
+		if err := f.Close(); err != nil {
+			// Log error but don't override the return error
+			_ = err
+		}
+	}()
 
 	var projects []types.Project
 	scanner := bufio.NewScanner(f)
