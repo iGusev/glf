@@ -20,8 +20,10 @@ type DescriptionMatch struct {
 type MatchSource int
 
 const (
-	MatchSourceName        MatchSource = 1 << iota // Found in project name (fuzzy)
-	MatchSourceDescription                         // Found in description (bleve)
+	// MatchSourceName indicates match found in project name (fuzzy)
+	MatchSourceName MatchSource = 1 << iota
+	// MatchSourceDescription indicates match found in description (bleve)
+	MatchSourceDescription
 )
 
 // CombinedMatch represents a unified search result with score breakdown

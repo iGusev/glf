@@ -1,3 +1,4 @@
+// Package logger provides simple logging utilities with debug mode support
 package logger
 
 import (

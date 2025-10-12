@@ -1,3 +1,4 @@
+// Package types defines core data structures for GitLab projects
 package types
 
 import "strings"

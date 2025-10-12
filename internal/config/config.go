@@ -1,3 +1,4 @@
+// Package config manages application configuration with GitLab and cache settings
 package config
 
 import (

@@ -32,7 +32,11 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	fmt.Println("========================")
 
 	// Load existing config if available
-	existingCfg, _ := config.Load()
+	existingCfg, err := config.Load()
+	if err != nil {
+		// If no config exists, create empty config for defaults
+		existingCfg = &config.Config{}
+	}
 
 	// Get GitLab URL
 	fmt.Printf("GitLab URL")

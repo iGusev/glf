@@ -1,3 +1,5 @@
+version: 2
+
 run:
   timeout: 5m
   tests: true
@@ -6,24 +8,26 @@ run:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - gocritic
     - revive
     - unconvert
     - unparam
     - gosec
-    - exportloopref
+    - copyloopvar
     - nilerr
     - noctx
     - makezero
     - goconst
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 linters-settings:
   errcheck:
@@ -103,12 +107,13 @@ linters-settings:
       - wrapperFunc
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-dirs:
+    - vendor
   exclude-rules:
     # Exclude some linters from running on tests files
-    - path: _test\.go
+    - path: _test\.go$
       linters:
         - gosec
         - goconst

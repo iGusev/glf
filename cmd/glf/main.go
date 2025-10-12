@@ -111,7 +111,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		if query == "" {
 			return fmt.Errorf("-g/--go requires a search query")
 		}
-		defer descIndex.Close()
+		defer func() {
+			if err := descIndex.Close(); err != nil {
+				logger.Debug("Failed to close index: %v", err)
+			}
+		}()
 		return runAutoGo(allProjects, query, cfg, descIndex)
 	}
 
@@ -281,7 +285,10 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			// Check for incremental sync
 			cacheManager := cache.New(cfg.Cache.Dir)
 			lastSyncTime, err := cacheManager.LoadLastSyncTime()
-			lastFullSyncTime, _ := cacheManager.LoadLastFullSyncTime()
+			lastFullSyncTime, fullSyncErr := cacheManager.LoadLastFullSyncTime()
+			if fullSyncErr != nil {
+				logger.Debug("Failed to load last full sync time: %v", fullSyncErr)
+			}
 
 			var sincePtr *time.Time
 			var syncMode string
@@ -319,7 +326,11 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			if err != nil {
 				return tui.SyncCompleteMsg{Err: err}
 			}
-			defer descIndex.Close()
+			defer func() {
+				if err := descIndex.Close(); err != nil {
+					logger.Debug("Failed to close index: %v", err)
+				}
+			}()
 
 			// Prepare documents for batch indexing
 			batchDocs := make([]index.DescriptionDocument, 0, len(newProjects))
@@ -442,7 +453,10 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 	// Check for incremental sync capability
 	cacheManager := cache.New(cfg.Cache.Dir)
 	lastSyncTime, err := cacheManager.LoadLastSyncTime()
-	lastFullSyncTime, _ := cacheManager.LoadLastFullSyncTime()
+	lastFullSyncTime, fullSyncErr := cacheManager.LoadLastFullSyncTime()
+	if fullSyncErr != nil {
+		logger.Debug("Failed to load last full sync time: %v", fullSyncErr)
+	}
 
 	var projects []types.Project
 	var syncMode string
@@ -554,11 +568,17 @@ func indexDescriptions(projects []types.Project, cacheDir string, silent bool) e
 	if err != nil {
 		return fmt.Errorf("failed to create description index: %w", err)
 	}
-	defer descriptionIndex.Close()
+	defer func() {
+		if err := descriptionIndex.Close(); err != nil {
+			logger.Debug("Failed to close index: %v", err)
+		}
+	}()
 
 	// Get current document count
-	docCount, _ := descriptionIndex.Count()
-	if docCount > 0 {
+	docCount, countErr := descriptionIndex.Count()
+	if countErr != nil {
+		logger.Debug("Failed to get document count: %v", countErr)
+	} else if docCount > 0 {
 		logger.Debug("Existing index has %d documents", docCount)
 	}
 

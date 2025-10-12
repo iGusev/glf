@@ -1,3 +1,4 @@
+// Package cache manages local project caching and synchronization timestamps
 package cache
 
 import (
@@ -44,7 +45,7 @@ func (c *Cache) WriteProjects(projects []types.Project) error {
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // Deferred close on read-only file
 
 	writer := bufio.NewWriter(f)
 	for _, project := range projects {
@@ -75,7 +76,7 @@ func (c *Cache) ReadProjects() ([]types.Project, error) {
 		}
 		return nil, fmt.Errorf("failed to open cache file: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // Deferred close on read-only file
 
 	var projects []types.Project
 	scanner := bufio.NewScanner(f)

@@ -1,3 +1,4 @@
+// Package index provides full-text search indexing for project descriptions using Bleve
 package index
 
 import (
@@ -204,9 +205,18 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 	// Convert results to DescriptionMatch
 	matches := make([]DescriptionMatch, 0, len(searchResults.Hits))
 	for _, hit := range searchResults.Hits {
-		projectPath, _ := hit.Fields["ProjectPath"].(string)
-		projectName, _ := hit.Fields["ProjectName"].(string)
-		description, _ := hit.Fields["Description"].(string)
+		projectPath, ok := hit.Fields["ProjectPath"].(string)
+		if !ok {
+			projectPath = ""
+		}
+		projectName, ok := hit.Fields["ProjectName"].(string)
+		if !ok {
+			projectName = ""
+		}
+		description, ok := hit.Fields["Description"].(string)
+		if !ok {
+			description = ""
+		}
 
 		// Extract snippet from highlight or description
 		snippet := extractSnippet(hit)
@@ -322,9 +332,18 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 	// Convert results to Project slice
 	projects := make([]types.Project, 0, len(searchResults.Hits))
 	for _, hit := range searchResults.Hits {
-		projectPath, _ := hit.Fields["ProjectPath"].(string)
-		projectName, _ := hit.Fields["ProjectName"].(string)
-		description, _ := hit.Fields["Description"].(string)
+		projectPath, ok := hit.Fields["ProjectPath"].(string)
+		if !ok {
+			projectPath = ""
+		}
+		projectName, ok := hit.Fields["ProjectName"].(string)
+		if !ok {
+			projectName = ""
+		}
+		description, ok := hit.Fields["Description"].(string)
+		if !ok {
+			description = ""
+		}
 
 		projects = append(projects, types.Project{
 			Path:        projectPath,

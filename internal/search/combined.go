@@ -1,3 +1,4 @@
+// Package search combines fuzzy name search with full-text description search
 package search
 
 import (
@@ -44,7 +45,12 @@ func CombinedSearchWithIndex(query string, projects []types.Project, historyScor
 	}
 
 	if needClose {
-		defer descIndex.Close()
+		defer func() {
+			if err := descIndex.Close(); err != nil {
+				// Log error but don't fail the search operation
+				_ = err // Error in deferred close is logged if needed
+			}
+		}()
 	}
 
 	// Search across all fields (ProjectName, ProjectPath, Description) with boosting
