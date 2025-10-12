@@ -103,7 +103,7 @@ func expandPath(path string) string {
 // EnsureConfigDir ensures the config directory exists
 func EnsureConfigDir() error {
 	configDir := filepath.Join(os.Getenv("HOME"), ".config", "glf")
-	return os.MkdirAll(configDir, 0755)
+	return os.MkdirAll(configDir, 0750)
 }
 
 // ExampleConfigPath returns the path where the example config should be created
@@ -255,5 +255,5 @@ excluded_paths:
 `
 
 	examplePath := ExampleConfigPath()
-	return os.WriteFile(examplePath, []byte(exampleConfig), 0644)
+	return os.WriteFile(examplePath, []byte(exampleConfig), 0600)
 }

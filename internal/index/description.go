@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -304,8 +305,12 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 		return []types.Project{}, nil
 	}
 
-	// Request all documents
-	searchRequest := bleve.NewSearchRequestOptions(query, int(count), 0, false)
+	// Request all documents with bounds checking for integer overflow
+	size := int(count)
+	if count > math.MaxInt {
+		size = math.MaxInt
+	}
+	searchRequest := bleve.NewSearchRequestOptions(query, size, 0, false)
 	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description"}
 
 	// Execute search

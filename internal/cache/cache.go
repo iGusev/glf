@@ -25,7 +25,7 @@ func New(dir string) *Cache {
 
 // EnsureDir ensures the cache directory exists
 func (c *Cache) EnsureDir() error {
-	return os.MkdirAll(c.dir, 0755)
+	return os.MkdirAll(c.dir, 0750)
 }
 
 // ProjectsPath returns the full path to the projects cache file
@@ -138,7 +138,7 @@ func (c *Cache) SaveLastSyncTime(t time.Time) error {
 	timestampPath := filepath.Join(c.dir, ".last_sync_time")
 	data := []byte(t.Format(time.RFC3339))
 
-	if err := os.WriteFile(timestampPath, data, 0644); err != nil {
+	if err := os.WriteFile(timestampPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to save sync timestamp: %w", err)
 	}
 
@@ -176,7 +176,7 @@ func (c *Cache) SaveLastFullSyncTime(t time.Time) error {
 	timestampPath := filepath.Join(c.dir, ".last_full_sync_time")
 	data := []byte(t.Format(time.RFC3339))
 
-	if err := os.WriteFile(timestampPath, data, 0644); err != nil {
+	if err := os.WriteFile(timestampPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to save full sync timestamp: %w", err)
 	}
 
@@ -214,7 +214,7 @@ func (c *Cache) SaveUsername(username string) error {
 	usernamePath := filepath.Join(c.dir, ".username")
 	data := []byte(username)
 
-	if err := os.WriteFile(usernamePath, data, 0644); err != nil {
+	if err := os.WriteFile(usernamePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to save username: %w", err)
 	}
 

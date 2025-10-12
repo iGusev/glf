@@ -160,9 +160,9 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 
 			results <- pageResult{page: pageNum, projects: projs, err: nil}
 
-			// Log progress
+			// Log progress with integer overflow protection
 			completed := atomic.AddInt32(&completedPages, 1)
-			logger.Debug("Fetched page %d/%d (%d%%)", completed, totalPages, (completed*100)/int32(totalPages))
+			logger.Debug("Fetched page %d/%d (%d%%)", completed, totalPages, (int(completed)*100)/totalPages)
 		}(page)
 	}
 

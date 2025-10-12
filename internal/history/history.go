@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -60,7 +61,9 @@ func (h *History) LoadAsync() <-chan error {
 	go func() {
 		defer close(errCh)
 
-		file, err := os.Open(h.filePath)
+		// Clean path to prevent directory traversal
+		cleanPath := filepath.Clean(h.filePath)
+		file, err := os.Open(cleanPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				// First run - no history file yet, not an error
@@ -81,7 +84,7 @@ func (h *History) LoadAsync() <-chan error {
 		var data historyData
 		if err := decoder.Decode(&data); err != nil {
 			// Failed - might be old format, try decoding just selections map
-			file.Seek(0, 0) // Reset to beginning
+			_, _ = file.Seek(0, 0) // Reset to beginning; ignore error (best effort)
 			decoder = gob.NewDecoder(file)
 
 			var oldSelections map[string]SelectionInfo
@@ -208,14 +211,17 @@ func (h *History) Save() error {
 	}
 	h.mu.RUnlock()
 
+	// Clean path to prevent directory traversal
+	cleanPath := filepath.Clean(h.filePath)
+
 	// Create directory if it doesn't exist
-	dir := h.filePath[:len(h.filePath)-len("/history.gob")]
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	dir := filepath.Dir(cleanPath)
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create history directory: %w", err)
 	}
 
 	// Create temporary file for atomic write
-	tempPath := h.filePath + ".tmp"
+	tempPath := cleanPath + ".tmp"
 	file, err := os.Create(tempPath)
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
@@ -232,19 +238,19 @@ func (h *History) Save() error {
 	h.mu.RUnlock()
 
 	if err != nil {
-		file.Close()
-		os.Remove(tempPath)
+		_ = file.Close()      // Cleanup on error; ignore Close error
+		_ = os.Remove(tempPath) // Cleanup temp file; ignore Remove error
 		return fmt.Errorf("failed to encode history: %w", err)
 	}
 
 	if err := file.Close(); err != nil {
-		os.Remove(tempPath)
+		_ = os.Remove(tempPath) // Cleanup temp file; ignore Remove error
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
 	// Atomic rename
-	if err := os.Rename(tempPath, h.filePath); err != nil {
-		os.Remove(tempPath)
+	if err := os.Rename(tempPath, cleanPath); err != nil {
+		_ = os.Remove(tempPath) // Cleanup temp file; ignore Remove error
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 

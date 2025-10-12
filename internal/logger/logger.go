@@ -20,26 +20,26 @@ func IsVerbose() bool {
 // Debug prints debug messages only when verbose mode is enabled
 func Debug(format string, args ...interface{}) {
 	if verbose {
-		fmt.Fprintf(os.Stderr, "[DEBUG] "+format+"\n", args...)
+		_, _ = fmt.Fprintf(os.Stderr, "[DEBUG] "+format+"\n", args...)
 	}
 }
 
 // Info prints informational messages
 func Info(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	_, _ = fmt.Fprintf(os.Stderr, format+"\n", args...)
 }
 
 // Success prints success messages with checkmark
 func Success(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "✓ "+format+"\n", args...)
+	_, _ = fmt.Fprintf(os.Stderr, "✓ "+format+"\n", args...)
 }
 
 // Error prints error messages
 func Error(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "✗ "+format+"\n", args...)
+	_, _ = fmt.Fprintf(os.Stderr, "✗ "+format+"\n", args...)
 }
 
 // Warn prints warning messages
 func Warn(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "⚠ "+format+"\n", args...)
+	_, _ = fmt.Fprintf(os.Stderr, "⚠ "+format+"\n", args...)
 }
