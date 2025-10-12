@@ -2,8 +2,12 @@
 
 ⚡ Fast CLI tool for instant fuzzy search across self-hosted GitLab projects using local cache.
 
-![Go Version](https://img.shields.io/badge/Go-1.25+-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![CI](https://github.com/igusev/glf/workflows/CI/badge.svg)](https://github.com/igusev/glf/actions/workflows/ci.yml)
+[![Security](https://github.com/igusev/glf/workflows/Security/badge.svg)](https://github.com/igusev/glf/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/igusev/glf/branch/main/graph/badge.svg)](https://codecov.io/gh/igusev/glf)
+[![Go Report Card](https://goreportcard.com/badge/github.com/igusev/glf)](https://goreportcard.com/report/github.com/igusev/glf)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-blue)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## ✨ Features
 
