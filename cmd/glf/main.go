@@ -36,6 +36,13 @@ const (
 	syncModeIncremental = "incremental"
 )
 
+// Platform constants for runtime.GOOS
+const (
+	platformDarwin  = "darwin"
+	platformLinux   = "linux"
+	platformWindows = "windows"
+)
+
 var (
 	verbose    bool // Flag to enable verbose logging
 	showScores bool // Flag to show score breakdown (search + history)
@@ -237,11 +244,11 @@ func openBrowser(url string) error {
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
-	case "darwin": // macOS
+	case platformDarwin: // macOS
 		cmd = exec.Command("open", url)
-	case "linux":
+	case platformLinux:
 		cmd = exec.Command("xdg-open", url)
-	case "windows":
+	case platformWindows:
 		// Empty string before URL is important: start interprets first quoted arg as window title
 		cmd = exec.Command("cmd", "/c", "start", "", url)
 	default:

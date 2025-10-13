@@ -81,7 +81,7 @@ func TestOpenBrowser(t *testing.T) {
 	// Test that function accepts valid URLs without panicking
 	// on supported platforms (darwin, linux, windows)
 	switch runtime.GOOS {
-	case "darwin", "linux", "windows":
+	case platformDarwin, platformLinux, platformWindows:
 		// These platforms should not error on command creation
 		// We can't test actual execution in unit tests
 		err := openBrowser(testURL)
@@ -204,7 +204,7 @@ func TestIndexDescriptions_InvalidCacheDir(t *testing.T) {
 	// Platform-specific invalid paths
 	var invalidPath string
 	switch runtime.GOOS {
-	case "windows":
+	case platformWindows:
 		invalidPath = `C:\nonexistent\readonly\path\that\cannot\be\created`
 	default:
 		invalidPath = "/nonexistent/readonly/path/that/cannot/be/created"
