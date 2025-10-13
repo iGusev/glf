@@ -25,8 +25,8 @@ const (
 
 // SelectionInfo tracks information about a selected item
 type SelectionInfo struct {
-	Count    int       // Number of times selected
 	LastUsed time.Time // Last time selected
+	Count    int       // Number of times selected
 }
 
 // historyData is the serializable representation of history
@@ -37,9 +37,9 @@ type historyData struct {
 
 // History manages selection frequency tracking
 type History struct {
+	mu              sync.RWMutex
 	selections      map[string]SelectionInfo            // Global history: projectPath -> info
 	querySelections map[string]map[string]SelectionInfo // Query-specific: queryHash -> projectPath -> info
-	mu              sync.RWMutex
 	filePath        string
 	dirty           bool // Indicates if there are unsaved changes
 }

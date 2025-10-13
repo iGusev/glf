@@ -12,8 +12,8 @@ type DescriptionDocument struct {
 // DescriptionMatch represents a search result from description index
 type DescriptionMatch struct {
 	Project types.Project // The matched project
-	Score   float64       // Relevance score from bleve
 	Snippet string        // Context snippet with highlighted match
+	Score   float64       // Relevance score from bleve
 }
 
 // MatchSource indicates where the match was found
@@ -29,9 +29,9 @@ const (
 // CombinedMatch represents a unified search result with score breakdown
 type CombinedMatch struct {
 	Project      types.Project
-	SearchScore  float64     // Bleve relevance score
-	HistoryScore int         // History boost (with exponential decay)
-	TotalScore   float64     // Combined score (SearchScore + HistoryScore)
-	Source       MatchSource // Bitflags: can be MatchSourceName | MatchSourceDescription
 	Snippet      string      // Description snippet if found there
+	SearchScore  float64     // Bleve relevance score
+	TotalScore   float64     // Combined score (SearchScore + HistoryScore)
+	HistoryScore int         // History boost (with exponential decay)
+	Source       MatchSource // Bitflags: can be MatchSourceName | MatchSourceDescription
 }

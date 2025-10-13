@@ -114,3 +114,4 @@ issues:
         - gosec
         - goconst
         - errcheck
+        - govet  # Excludes fieldalignment from test files

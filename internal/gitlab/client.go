@@ -91,9 +91,9 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 	startTime := time.Now()
 
 	type pageResult struct {
-		page     int
 		projects []types.Project
 		err      error
+		page     int
 	}
 
 	// Channel to collect results
