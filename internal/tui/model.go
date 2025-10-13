@@ -470,10 +470,10 @@ func (m Model) View() string {
 
 	// Calculate available lines for project list precisely
 	usedLines := 0
-	usedLines += 1 // Title line
-	usedLines += 1 // Separator
-	usedLines += 1 // Empty line before search input
-	usedLines += 1 // Search input
+	usedLines++ // Title line
+	usedLines++ // Separator
+	usedLines++ // Empty line before search input
+	usedLines++ // Search input
 	usedLines += 2 // Empty lines after search input
 	if m.showHelp {
 		usedLines += 3 // Help text + spacing (bottom)

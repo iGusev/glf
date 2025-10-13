@@ -25,8 +25,14 @@ import (
 // Build-time variables (set via ldflags)
 var (
 	version   = "dev"     // Version from git tag or "dev"
-	commit    = "unknown" // Git commit hash
-	buildTime = "unknown" // Build timestamp
+	commit    = "unknown" // Git commit hash (used in version output)
+	buildTime = "unknown" // Build timestamp (used in version output)
+)
+
+// Sync mode constants
+const (
+	syncModeFull        = "full"
+	syncModeIncremental = "incremental"
 )
 
 var (
@@ -298,21 +304,21 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			if err != nil {
 				// Error loading timestamp - fall back to full sync
 				logger.Debug("TUI sync: could not load last sync time: %v, performing full sync", err)
-				syncMode = "full"
+				syncMode = syncModeFull
 			} else if lastSyncTime.IsZero() {
 				// First sync ever
 				logger.Debug("TUI sync: first sync detected, performing full sync")
-				syncMode = "full"
+				syncMode = syncModeFull
 			} else if !lastFullSyncTime.IsZero() && time.Since(lastFullSyncTime) > fullSyncInterval {
 				// Last full sync was >7 days ago - auto full sync to remove deleted projects
 				daysSinceFullSync := int(time.Since(lastFullSyncTime).Hours() / 24)
 				logger.Debug("TUI sync: auto full sync (last full sync was %d days ago, removes deleted projects)", daysSinceFullSync)
-				syncMode = "full"
+				syncMode = syncModeFull
 			} else {
 				// Incremental sync possible
 				sincePtr = &lastSyncTime
 				logger.Debug("TUI sync: incremental (since %v ago)", time.Since(lastSyncTime).Round(time.Second))
-				syncMode = "incremental"
+				syncMode = syncModeIncremental
 			}
 
 			// Fetch projects (incremental or full)
@@ -364,7 +370,7 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			}
 
 			// Save last full sync time only if this was a full sync
-			if syncMode == "full" {
+			if syncMode == syncModeFull {
 				if err := cacheManager.SaveLastFullSyncTime(syncCompletedAt); err != nil {
 					logger.Debug("Failed to save TUI full sync timestamp: %v", err)
 				} else {
@@ -466,25 +472,25 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 	if forceFullSync {
 		// User explicitly requested full sync
 		logInfo("Full sync requested (--full flag)")
-		syncMode = "full"
+		syncMode = syncModeFull
 	} else if err != nil {
 		// Error loading timestamp - fall back to full sync
 		logger.Debug("Could not load last sync time: %v, performing full sync", err)
-		syncMode = "full"
+		syncMode = syncModeFull
 	} else if lastSyncTime.IsZero() {
 		// First sync ever
 		logInfo("First sync detected")
-		syncMode = "full"
+		syncMode = syncModeFull
 	} else if !lastFullSyncTime.IsZero() && time.Since(lastFullSyncTime) > fullSyncInterval {
 		// Last full sync was >7 days ago - auto full sync to remove deleted projects
 		daysSinceFullSync := int(time.Since(lastFullSyncTime).Hours() / 24)
 		logInfo("Auto full sync: last full sync was %d days ago (removes deleted projects)", daysSinceFullSync)
-		syncMode = "full"
+		syncMode = syncModeFull
 	} else {
 		// Incremental sync possible
 		timeSinceLastSync := time.Since(lastSyncTime)
 		logInfo("Incremental sync: fetching projects changed since %v ago", timeSinceLastSync.Round(time.Second))
-		syncMode = "incremental"
+		syncMode = syncModeIncremental
 	}
 
 	// Fetch projects (full or incremental)
@@ -492,7 +498,7 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 	start := time.Now()
 
 	var sincePtr *time.Time
-	if syncMode == "incremental" {
+	if syncMode == syncModeIncremental {
 		sincePtr = &lastSyncTime
 	}
 
@@ -503,7 +509,7 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 	}
 	elapsed := time.Since(start)
 
-	if syncMode == "incremental" {
+	if syncMode == syncModeIncremental {
 		logSuccess("Fetched %d changed projects in %v", len(projects), elapsed)
 		if len(projects) == 0 {
 			logInfo("No projects changed since last sync")
@@ -535,7 +541,7 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 	}
 
 	// Save last full sync time only if this was a full sync
-	if syncMode == "full" {
+	if syncMode == syncModeFull {
 		if err := cacheManager.SaveLastFullSyncTime(syncCompletedAt); err != nil {
 			logger.Warn("Failed to save full sync timestamp: %v", err)
 		} else {
