@@ -1,99 +1,104 @@
+version: "2"
 run:
-  timeout: 5m
-  tests: true
   modules-download-mode: readonly
-
+  tests: true
 linters:
   enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - misspell
+    - copyloopvar
+    - goconst
     - gocritic
+    - gosec
+    - makezero
+    - misspell
+    - nilerr
+    - noctx
     - revive
     - unconvert
     - unparam
-    - gosec
-    - copyloopvar
-    - nilerr
-    - noctx
-    - makezero
-    - goconst
-
-linters-settings:
-  errcheck:
-    check-blank: true
-    check-type-assertions: true
-
-  govet:
-    enable-all: true
-    disable:
-      - shadow
-      - fieldalignment  # Disabled: struct field ordering is micro-optimization
-
-  revive:
-    severity: warning
-    confidence: 0.8
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gocritic:
+      enabled-checks:
+        - appendCombine
+        - emptyFallthrough
+        - equalFold
+        - indexAlloc
+        - initClause
+        - methodExprCall
+        - nestingReduce
+        - ptrToRefParam
+        - rangeExprCopy
+        - rangeValCopy
+        - stringXbytes
+        - typeAssertChain
+      disabled-checks:
+        - ifElseChain  # False positives: checks different variables, bitwise flags, complex conditions
+    gosec:
+      severity: medium
+      confidence: medium
+    govet:
+      disable:
+        - shadow
+        - fieldalignment  # Disabled: struct field ordering is micro-optimization
+      enable-all: true
+    revive:
+      confidence: 0.8
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: increment-decrement
+        - name: var-naming
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: increment-decrement
-      - name: var-naming
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-
-  gosec:
-    severity: medium
-    confidence: medium
-
-  gocritic:
-    enabled-checks:
-      - appendCombine
-      - emptyFallthrough
-      - equalFold
-      - indexAlloc
-      - initClause
-      - methodExprCall
-      - nestingReduce
-      - ptrToRefParam
-      - rangeExprCopy
-      - rangeValCopy
-      - stringXbytes
-      - typeAssertChain
-    disabled-checks:
-      - ifElseChain  # False positives: checks different variables, bitwise flags, complex conditions
-
+      # Exclude some linters from running on test files
+      - linters:
+          - errcheck
+          - goconst
+          - gosec
+          - govet  # Excludes fieldalignment from test files
+        path: _test\.go$
+      # Exclude deprecation warnings for gitlab client (library migration requires separate task)
+      - linters:
+          - staticcheck
+        path: internal/gitlab/client\.go$
+        text: SA1019.*gitlab\.Client.*deprecated
+      - linters:
+          - staticcheck
+        path: internal/gitlab/client\.go$
+        text: SA1019.*gitlab\.NewClient.*deprecated
+    paths:
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-dirs:
-    - vendor
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go$
-      linters:
-        - gosec
-        - goconst
-        - errcheck
-        - govet  # Excludes fieldalignment from test files
-    # Exclude deprecation warnings for gitlab client (library migration requires separate task)
-    - path: internal/gitlab/client\.go$
-      linters:
-        - staticcheck
-      text: "SA1019.*gitlab\\.Client.*deprecated"
-    - path: internal/gitlab/client\.go$
-      linters:
-        - staticcheck
-      text: "SA1019.*gitlab\\.NewClient.*deprecated"
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

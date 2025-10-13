@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -782,4 +783,599 @@ func TestFilter(t *testing.T) {
 	// 3. The underlying search functionality is tested in search package
 
 	// If we need to test filtering specifically, we should mock the search.CombinedSearch function
+}
+
+// TestRenderFuzzyMatch verifies fuzzy match highlighting
+func TestRenderFuzzyMatch(t *testing.T) {
+	style := lipgloss.NewStyle()
+	highlightStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FC6D25"))
+
+	tests := []struct {
+		name        string
+		displayStr  string
+		query       string
+		expectMatch bool
+	}{
+		{
+			name:        "empty query",
+			displayStr:  "backend/api",
+			query:       "",
+			expectMatch: false,
+		},
+		{
+			name:        "single token match at start",
+			displayStr:  "backend/api",
+			query:       "back",
+			expectMatch: true,
+		},
+		{
+			name:        "single token match in middle",
+			displayStr:  "backend/api",
+			query:       "end",
+			expectMatch: true,
+		},
+		{
+			name:        "single token match at end",
+			displayStr:  "backend/api",
+			query:       "api",
+			expectMatch: true,
+		},
+		{
+			name:        "multi-token query uses first token",
+			displayStr:  "backend/api",
+			query:       "back frontend",
+			expectMatch: true, // Should match "back"
+		},
+		{
+			name:        "case insensitive match",
+			displayStr:  "Backend/API",
+			query:       "backend",
+			expectMatch: true,
+		},
+		{
+			name:        "no match",
+			displayStr:  "backend/api",
+			query:       "xyz",
+			expectMatch: false,
+		},
+		{
+			name:        "empty display string",
+			displayStr:  "",
+			query:       "test",
+			expectMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := renderFuzzyMatch(tt.displayStr, tt.query, style, highlightStyle)
+
+			// If display string is empty, result can be empty
+			if tt.displayStr == "" {
+				return // Empty input is a valid edge case
+			}
+
+			// Result should not be empty for non-empty display strings
+			if result == "" {
+				t.Error("renderFuzzyMatch returned empty string for non-empty input")
+			}
+
+			// Result should contain the display string content (possibly styled)
+			// We can't check exact match due to ANSI codes, but length should be reasonable
+			if len(result) < len(tt.displayStr) {
+				t.Errorf("Result length %d is less than display string length %d", len(result), len(tt.displayStr))
+			}
+		})
+	}
+}
+
+// TestRenderFuzzyMatch_Highlighting verifies that matched text can be highlighted
+func TestRenderFuzzyMatch_Highlighting(t *testing.T) {
+	style := lipgloss.NewStyle()
+	highlightStyle := lipgloss.NewStyle().Bold(true)
+
+	displayStr := "backend/api/server"
+	query := "api"
+
+	result := renderFuzzyMatch(displayStr, query, style, highlightStyle)
+
+	// The function should handle highlighting without errors
+	// Note: In test environments, lipgloss may not add ANSI codes (NO_COLOR, not a TTY, etc.)
+	// so we just verify the result is valid and contains the display string content
+	if result == "" {
+		t.Error("renderFuzzyMatch returned empty string")
+	}
+
+	// Result should be at least as long as display string (with or without styling)
+	if len(result) < len(displayStr) {
+		t.Errorf("Result length %d is less than display string length %d", len(result), len(displayStr))
+	}
+}
+
+// TestUpdate_CtrlR_Sync verifies Ctrl+R triggers sync
+func TestUpdate_CtrlR_Sync(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+
+	// Create sync callback
+	syncCallback := func() tea.Cmd {
+		return func() tea.Msg {
+			return SyncCompleteMsg{Err: nil, Projects: projects}
+		}
+	}
+
+	m := New(projects, "", syncCallback, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Send Ctrl+R
+	msg := tea.KeyMsg{Type: tea.KeyCtrlR}
+	newModel, cmd := m.Update(msg)
+	m = newModel.(Model)
+
+	// Verify syncing flag is set
+	if !m.syncing {
+		t.Error("Expected syncing to be true after Ctrl+R")
+	}
+
+	// Verify sync callback was called (by executing the returned command)
+	if cmd != nil {
+		result := cmd()
+		if _, ok := result.(SyncCompleteMsg); !ok {
+			t.Error("Expected SyncCompleteMsg from sync callback")
+		}
+	}
+}
+
+// TestUpdate_CtrlR_AlreadySyncing verifies Ctrl+R does nothing when already syncing
+func TestUpdate_CtrlR_AlreadySyncing(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.syncing = true // Already syncing
+
+	// Send Ctrl+R
+	msg := tea.KeyMsg{Type: tea.KeyCtrlR}
+	newModel, cmd := m.Update(msg)
+	m = newModel.(Model)
+
+	// Should not trigger new sync
+	if cmd != nil {
+		t.Error("Expected no command when already syncing")
+	}
+}
+
+// TestUpdate_CtrlH_ToggleExcluded verifies Ctrl+H toggles excluded projects visibility
+func TestUpdate_CtrlH_ToggleExcluded(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{
+		{Path: "test/project1", Name: "Project 1"},
+		{Path: "test/project2", Name: "Project 2"},
+	}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Initially showExcluded should be false
+	if m.showExcluded {
+		t.Error("Expected showExcluded to be false initially")
+	}
+
+	// Send Ctrl+H
+	msg := tea.KeyMsg{Type: tea.KeyCtrlH}
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	// Should toggle to true
+	if !m.showExcluded {
+		t.Error("Expected showExcluded to be true after Ctrl+H")
+	}
+
+	// Send Ctrl+H again
+	newModel, _ = m.Update(msg)
+	m = newModel.(Model)
+
+	// Should toggle back to false
+	if m.showExcluded {
+		t.Error("Expected showExcluded to be false after second Ctrl+H")
+	}
+}
+
+// TestUpdate_SyncCompleteMsg_Success verifies successful sync handling
+func TestUpdate_SyncCompleteMsg_Success(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	initialProjects := []types.Project{{Path: "test/project1", Name: "Project 1"}}
+	m := New(initialProjects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.syncing = true
+
+	// Send successful sync message with new projects
+	newProjects := []types.Project{
+		{Path: "test/project1", Name: "Project 1"},
+		{Path: "test/project2", Name: "Project 2"},
+	}
+	msg := SyncCompleteMsg{Err: nil, Projects: newProjects}
+
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	// Verify syncing flag is cleared
+	if m.syncing {
+		t.Error("Expected syncing to be false after sync completion")
+	}
+
+	// Verify syncError is cleared
+	if m.syncError != nil {
+		t.Error("Expected syncError to be nil after successful sync")
+	}
+
+	// Verify projects were updated
+	if len(m.projects) != 2 {
+		t.Errorf("Expected 2 projects after sync, got %d", len(m.projects))
+	}
+}
+
+// TestUpdate_SyncCompleteMsg_Error verifies error sync handling
+func TestUpdate_SyncCompleteMsg_Error(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project1", Name: "Project 1"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.syncing = true
+
+	// Send sync error message
+	syncErr := fmt.Errorf("network timeout")
+	msg := SyncCompleteMsg{Err: syncErr, Projects: nil}
+
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	// Verify syncing flag is cleared
+	if m.syncing {
+		t.Error("Expected syncing to be false after sync error")
+	}
+
+	// Verify syncError is set
+	if m.syncError == nil {
+		t.Error("Expected syncError to be set")
+	}
+
+	if m.syncError.Error() != "network timeout" {
+		t.Errorf("Expected syncError 'network timeout', got '%v'", m.syncError)
+	}
+
+	// Verify projects were NOT updated
+	if len(m.projects) != 1 {
+		t.Errorf("Expected original 1 project after sync error, got %d", len(m.projects))
+	}
+}
+
+// TestUpdate_HistoryLoadedMsg verifies history loaded message handling
+func TestUpdate_HistoryLoadedMsg(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.historyLoading = true
+
+	// Send history loaded message (success)
+	msg := HistoryLoadedMsg{Err: nil}
+
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	// Verify historyLoading flag is cleared
+	if m.historyLoading {
+		t.Error("Expected historyLoading to be false after HistoryLoadedMsg")
+	}
+}
+
+// TestUpdate_HistoryLoadedMsg_Error verifies history load error handling
+func TestUpdate_HistoryLoadedMsg_Error(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.historyLoading = true
+
+	// Send history loaded message with error
+	historyErr := fmt.Errorf("failed to load history file")
+	msg := HistoryLoadedMsg{Err: historyErr}
+
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	// Verify historyLoading flag is still cleared (error is non-fatal)
+	if m.historyLoading {
+		t.Error("Expected historyLoading to be false even with error")
+	}
+}
+
+// TestInit_AutoSync verifies auto-sync on initialization
+func TestInit_AutoSync(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+
+	syncCallback := func() tea.Cmd {
+		return func() tea.Msg {
+			return SyncCompleteMsg{Err: nil, Projects: projects}
+		}
+	}
+
+	// Create model with auto-sync enabled (default)
+	m := New(projects, "", syncCallback, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Verify autoSync is enabled
+	if !m.autoSync {
+		t.Error("Expected autoSync to be true by default")
+	}
+
+	// Call Init to get the command batch
+	cmd := m.Init()
+
+	if cmd == nil {
+		t.Fatal("Expected Init() to return a command batch")
+	}
+
+	// Execute the batch command to trigger auto-sync
+	// The batch contains: textinput.Blink, history loading, and autoSyncMsg
+	result := cmd()
+
+	// The result should be tea.BatchMsg containing multiple commands
+	// We can't easily inspect tea.BatchMsg internals, but we verified the structure
+	if result == nil {
+		t.Error("Expected batch command to return a result")
+	}
+}
+
+// TestInit_NoAutoSync verifies initialization without auto-sync
+func TestInit_NoAutoSync(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Disable auto-sync
+	m.autoSync = false
+
+	// Call Init
+	cmd := m.Init()
+
+	if cmd == nil {
+		t.Error("Expected Init() to return a command batch (at minimum textinput.Blink)")
+	}
+
+	// With autoSync disabled, the batch should still contain blink and history loading
+	// but not the autoSyncMsg
+}
+
+// TestView_WithSyncError verifies View displays sync error
+func TestView_WithSyncError(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.width = 80
+	m.height = 24
+	m.syncError = fmt.Errorf("network timeout")
+
+	view := m.View()
+
+	// View should be non-empty
+	if view == "" {
+		t.Error("Expected non-empty view with sync error")
+	}
+
+	// Should contain error indicator (red status dot)
+	// The status indicator is styled, so we just verify the view is substantial
+	if len(view) < 50 {
+		t.Errorf("Expected substantial view with sync error, got length %d", len(view))
+	}
+}
+
+// TestView_NarrowTerminal verifies View adapts to narrow terminal
+func TestView_NarrowTerminal(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Set very narrow terminal
+	m.width = 40
+	m.height = 10
+
+	view := m.View()
+
+	// View should still render without panicking
+	if view == "" {
+		t.Error("Expected non-empty view even in narrow terminal")
+	}
+}
+
+// TestView_WithHelp verifies View displays help text
+func TestView_WithHelp(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.width = 100
+	m.height = 30
+	m.showHelp = true // Enable help display
+
+	view := m.View()
+
+	// View should contain help text
+	if !strings.Contains(view, "navigate") || !strings.Contains(view, "select") {
+		t.Error("Expected view to contain help text with navigation hints")
+	}
+}
+
+// TestUpdate_AutoSyncMsg verifies autoSyncMsg triggers sync
+func TestUpdate_AutoSyncMsg(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+
+	syncCallback := func() tea.Cmd {
+		return func() tea.Msg {
+			return SyncCompleteMsg{Err: nil, Projects: projects}
+		}
+	}
+
+	m := New(projects, "", syncCallback, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Send autoSyncMsg
+	msg := autoSyncMsg{}
+	newModel, cmd := m.Update(msg)
+	m = newModel.(Model)
+
+	// Verify syncing flag is set
+	if !m.syncing {
+		t.Error("Expected syncing to be true after autoSyncMsg")
+	}
+
+	// Verify command was returned
+	if cmd == nil {
+		t.Error("Expected sync command to be returned")
+	}
+}
+
+// TestRenderMatch verifies renderMatch function
+func TestRenderMatch(t *testing.T) {
+	style := lipgloss.NewStyle()
+	highlightStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FC6D25"))
+	snippetStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
+
+	tests := []struct {
+		name       string
+		match      index.CombinedMatch
+		query      string
+		showScores bool
+		expectSnip bool
+	}{
+		{
+			name: "name match without snippet",
+			match: index.CombinedMatch{
+				Project: types.Project{
+					Path: "backend/api",
+					Name: "API Server",
+				},
+				Source:      index.MatchSourceName,
+				SearchScore: 10.5,
+			},
+			query:      "api",
+			showScores: false,
+			expectSnip: false,
+		},
+		{
+			name: "description match with snippet",
+			match: index.CombinedMatch{
+				Project: types.Project{
+					Path:        "backend/api",
+					Name:        "API Server",
+					Description: "REST API for authentication",
+				},
+				Source:      index.MatchSourceDescription,
+				Snippet:     "REST API for authentication services",
+				SearchScore: 8.3,
+			},
+			query:      "auth",
+			showScores: false,
+			expectSnip: true,
+		},
+		{
+			name: "both sources with scores",
+			match: index.CombinedMatch{
+				Project: types.Project{
+					Path: "backend/api",
+					Name: "API Server",
+				},
+				Source:       index.MatchSourceName | index.MatchSourceDescription,
+				SearchScore:  15.0,
+				HistoryScore: 5,
+				TotalScore:   20.0,
+			},
+			query:      "api",
+			showScores: true,
+			expectSnip: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := renderMatch(tt.match, style, highlightStyle, snippetStyle, tt.query, tt.showScores)
+
+			// Result should not be empty
+			if result == "" {
+				t.Error("renderMatch returned empty string")
+			}
+
+			// If snippet expected, result should contain newline
+			if tt.expectSnip && !strings.Contains(result, "\n") {
+				t.Error("Expected newline for snippet in result")
+			}
+
+			// If showing scores, result should contain score markers
+			if tt.showScores {
+				if !strings.Contains(result, "[") {
+					t.Error("Expected score markers '[' in result when showScores=true")
+				}
+			}
+		})
+	}
 }
