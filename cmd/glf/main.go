@@ -633,6 +633,9 @@ func indexDescriptions(projects []types.Project, cacheDir string, silent bool) e
 }
 
 func init() {
+	// Set version info
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildTime)
+
 	// Add flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().BoolVar(&showScores, "scores", false, "show score breakdown (search + history)")
