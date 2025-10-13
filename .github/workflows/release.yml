@@ -10,10 +10,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build Release Binaries
+  goreleaser:
+    name: Release with GoReleaser
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -26,67 +25,11 @@ jobs:
           go-version: '1.25.x'
           cache: true
 
-      - name: Get version
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
-
-      - name: Build all platforms
-        run: make build-all
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-
-      - name: Create release archives
-        run: make release
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > checksums.txt
-          cat checksums.txt
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          files: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/checksums.txt
-          body: |
-            ## GLF ${{ steps.version.outputs.version }}
-
-            ### Downloads
-
-            Choose the appropriate binary for your platform:
-
-            - **Linux (amd64)**: `glf-linux-amd64.tar.gz`
-            - **Linux (arm64)**: `glf-linux-arm64.tar.gz`
-            - **macOS (Intel)**: `glf-darwin-amd64.tar.gz`
-            - **macOS (Apple Silicon)**: `glf-darwin-arm64.tar.gz`
-            - **Windows (amd64)**: `glf-windows-amd64.zip`
-
-            ### Installation
-
-            ```bash
-            # Linux/macOS
-            tar xzf glf-*.tar.gz
-            sudo install -m 755 glf-* /usr/local/bin/glf
-
-            # Windows
-            # Extract zip and add to PATH
-            ```
-
-            ### Verify Checksums
-
-            ```bash
-            sha256sum -c checksums.txt
-            ```
-
-            See [README](https://github.com/igusev/glf/blob/main/README.md) for usage instructions.
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
