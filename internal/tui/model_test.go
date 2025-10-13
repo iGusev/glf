@@ -354,10 +354,8 @@ func TestFormatCountWithBreakdown_SourceBreakdown(t *testing.T) {
 				if tt.expectBoth && !strings.Contains(result, "both") {
 					t.Error("Expected 'both' in breakdown")
 				}
-			} else {
-				if strings.Contains(result, "(") && strings.Contains(result, "by name") {
-					t.Error("Did not expect breakdown when filtered == total")
-				}
+			} else if strings.Contains(result, "(") && strings.Contains(result, "by name") {
+				t.Error("Did not expect breakdown when filtered == total")
 			}
 		})
 	}
