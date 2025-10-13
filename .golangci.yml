@@ -1,5 +1,3 @@
-version: 2
-
 run:
   timeout: 5m
   tests: true
@@ -23,11 +21,6 @@ linters:
     - noctx
     - makezero
     - goconst
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
 
 linters-settings:
   errcheck:
