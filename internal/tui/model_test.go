@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/igusev/glf/internal/config"
 	"github.com/igusev/glf/internal/index"
 	"github.com/igusev/glf/internal/types"
 )
@@ -416,4 +418,364 @@ func TestFormatCountWithBreakdown_AllProjectsNoQuery(t *testing.T) {
 	if strings.Contains(result, "(") {
 		t.Error("Should not show breakdown when filtered equals total")
 	}
+}
+
+// TestNew verifies Model initialization
+func TestNew(t *testing.T) {
+	// Create temporary directory for cache
+	tempDir := t.TempDir()
+
+	// Create minimal config
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{
+			URL: "https://gitlab.example.com",
+		},
+		Cache: config.CacheConfig{
+			Dir: tempDir,
+		},
+	}
+
+	// Create test projects
+	projects := []types.Project{
+		{Path: "group/project1", Name: "Project 1"},
+		{Path: "group/project2", Name: "Project 2"},
+	}
+
+	// Create model
+	m := New(projects, "", nil, tempDir, cfg, false, "testuser", "v1.0.0")
+
+	// Verify initialization
+	if len(m.projects) != 2 {
+		t.Errorf("Expected 2 projects, got %d", len(m.projects))
+	}
+
+	if m.cacheDir != tempDir {
+		t.Errorf("Expected cacheDir %s, got %s", tempDir, m.cacheDir)
+	}
+
+	if m.gitlabURL != "gitlab.example.com" {
+		t.Errorf("Expected gitlabURL 'gitlab.example.com', got '%s'", m.gitlabURL)
+	}
+
+	if m.username != "testuser" {
+		t.Errorf("Expected username 'testuser', got '%s'", m.username)
+	}
+
+	if m.version != "v1.0.0" {
+		t.Errorf("Expected version 'v1.0.0', got '%s'", m.version)
+	}
+
+	if m.showExcluded != false {
+		t.Error("Expected showExcluded to be false by default")
+	}
+
+	if m.cursor != 0 {
+		t.Errorf("Expected cursor at 0, got %d", m.cursor)
+	}
+}
+
+// TestNew_WithInitialQuery verifies initial query is set
+func TestNew_WithInitialQuery(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{
+		{Path: "group/api", Name: "API"},
+		{Path: "group/web", Name: "Web"},
+	}
+
+	initialQuery := "api"
+	m := New(projects, initialQuery, nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Check if initial query was set in text input
+	if m.textInput.Value() != initialQuery {
+		t.Errorf("Expected initial query '%s', got '%s'", initialQuery, m.textInput.Value())
+	}
+}
+
+// TestInit verifies Init returns proper commands
+func TestInit(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	cmd := m.Init()
+
+	if cmd == nil {
+		t.Error("Init() should return a command, got nil")
+	}
+}
+
+// TestUpdate_Quit verifies quitting behavior
+func TestUpdate_Quit(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Test Ctrl+C
+	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	newModel, cmd := m.Update(msg)
+
+	updatedModel := newModel.(Model)
+	if !updatedModel.quitting {
+		t.Error("Expected quitting to be true after Ctrl+C")
+	}
+
+	if cmd == nil {
+		t.Error("Expected tea.Quit command")
+	}
+
+	// Test Esc
+	m = New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	msg = tea.KeyMsg{Type: tea.KeyEsc}
+	newModel, cmd = m.Update(msg)
+
+	updatedModel = newModel.(Model)
+	if !updatedModel.quitting {
+		t.Error("Expected quitting to be true after Esc")
+	}
+}
+
+// TestUpdate_Navigation verifies cursor navigation
+func TestUpdate_Navigation(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{
+		{Path: "test/project1", Name: "Project 1"},
+		{Path: "test/project2", Name: "Project 2"},
+		{Path: "test/project3", Name: "Project 3"},
+	}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Initial cursor should be at 0
+	if m.cursor != 0 {
+		t.Errorf("Expected initial cursor at 0, got %d", m.cursor)
+	}
+
+	// Test Down key
+	msg := tea.KeyMsg{Type: tea.KeyDown}
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	if m.cursor != 1 {
+		t.Errorf("Expected cursor at 1 after down, got %d", m.cursor)
+	}
+
+	// Test Up key
+	msg = tea.KeyMsg{Type: tea.KeyUp}
+	newModel, _ = m.Update(msg)
+	m = newModel.(Model)
+
+	if m.cursor != 0 {
+		t.Errorf("Expected cursor at 0 after up, got %d", m.cursor)
+	}
+
+	// Test Up at top (should stay at 0)
+	msg = tea.KeyMsg{Type: tea.KeyUp}
+	newModel, _ = m.Update(msg)
+	m = newModel.(Model)
+
+	if m.cursor != 0 {
+		t.Errorf("Expected cursor to stay at 0, got %d", m.cursor)
+	}
+
+	// Move to bottom
+	for i := 0; i < len(m.filtered); i++ {
+		msg = tea.KeyMsg{Type: tea.KeyDown}
+		newModel, _ = m.Update(msg)
+		m = newModel.(Model)
+	}
+
+	// Test Down at bottom (should stay at last position)
+	lastPos := len(m.filtered) - 1
+	if m.cursor != lastPos {
+		t.Errorf("Expected cursor at %d, got %d", lastPos, m.cursor)
+	}
+}
+
+// TestUpdate_Selection verifies project selection
+func TestUpdate_Selection(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{
+		{Path: "test/project1", Name: "Project 1"},
+		{Path: "test/project2", Name: "Project 2"},
+	}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Select first project
+	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	newModel, cmd := m.Update(msg)
+	m = newModel.(Model)
+
+	if m.Selected() == "" {
+		t.Error("Expected a project to be selected")
+	}
+
+	if m.Selected() != "test/project1" {
+		t.Errorf("Expected selected project 'test/project1', got '%s'", m.Selected())
+	}
+
+	if !m.quitting {
+		t.Error("Expected quitting to be true after selection")
+	}
+
+	if cmd == nil {
+		t.Error("Expected tea.Quit command after selection")
+	}
+}
+
+// TestUpdate_WindowSize verifies window size handling
+func TestUpdate_WindowSize(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Send window size message
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	if m.width != 120 {
+		t.Errorf("Expected width 120, got %d", m.width)
+	}
+
+	if m.height != 40 {
+		t.Errorf("Expected height 40, got %d", m.height)
+	}
+}
+
+// TestUpdate_ToggleHelp verifies help toggle
+func TestUpdate_ToggleHelp(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+
+	// Initially help should be hidden
+	if m.showHelp {
+		t.Error("Expected showHelp to be false initially")
+	}
+
+	// Toggle help
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}
+	newModel, _ := m.Update(msg)
+	m = newModel.(Model)
+
+	if !m.showHelp {
+		t.Error("Expected showHelp to be true after toggle")
+	}
+
+	// Toggle again
+	newModel, _ = m.Update(msg)
+	m = newModel.(Model)
+
+	if m.showHelp {
+		t.Error("Expected showHelp to be false after second toggle")
+	}
+}
+
+// TestView verifies View renders without errors
+func TestView(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{
+		{Path: "test/project1", Name: "Project 1", Description: "Test project 1"},
+		{Path: "test/project2", Name: "Project 2", Description: "Test project 2"},
+	}
+
+	m := New(projects, "", nil, tempDir, cfg, false, "testuser", "v1.0.0")
+	m.width = 80
+	m.height = 24
+
+	// Render view
+	view := m.View()
+
+	// Basic checks
+	if view == "" {
+		t.Error("Expected non-empty view")
+	}
+
+	// View contains ANSI escape codes, so we can't do exact string matching
+	// Just verify it's non-empty and contains basic structural elements
+	if len(view) < 50 {
+		t.Errorf("Expected view to be substantial, got length %d", len(view))
+	}
+
+	// The view should contain some recognizable text patterns
+	// (content might be styled with ANSI codes, so we check for partial matches)
+	if !strings.Contains(view, "glf") {
+		t.Error("Expected view to contain 'glf' app name")
+	}
+
+	if !strings.Contains(view, "projects") {
+		t.Error("Expected view to contain 'projects' text")
+	}
+}
+
+// TestView_Quitting verifies empty view when quitting
+func TestView_Quitting(t *testing.T) {
+	tempDir := t.TempDir()
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: tempDir},
+	}
+
+	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m.quitting = true
+
+	view := m.View()
+
+	if view != "" {
+		t.Error("Expected empty view when quitting")
+	}
+}
+
+// TestFilter verifies filtering logic
+func TestFilter(t *testing.T) {
+	t.Skip("Skipping TestFilter: requires full index setup and is slow")
+
+	// This test is skipped because:
+	// 1. It requires creating and indexing into Bleve which is slow
+	// 2. The filter() method is indirectly tested through Update tests
+	// 3. The underlying search functionality is tested in search package
+
+	// If we need to test filtering specifically, we should mock the search.CombinedSearch function
 }
