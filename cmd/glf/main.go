@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -246,16 +247,19 @@ func runAutoGoWithSync(projects []types.Project, query string, cfg *config.Confi
 
 // openBrowser opens the given URL in the default browser (cross-platform)
 func openBrowser(url string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case platformDarwin: // macOS
-		cmd = exec.Command("open", url)
+		cmd = exec.CommandContext(ctx, "open", url)
 	case platformLinux:
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.CommandContext(ctx, "xdg-open", url)
 	case platformWindows:
 		// Empty string before URL is important: start interprets first quoted arg as window title
-		cmd = exec.Command("cmd", "/c", "start", "", url)
+		cmd = exec.CommandContext(ctx, "cmd", "/c", "start", "", url)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -265,7 +269,10 @@ func openBrowser(url string) error {
 
 // getGitRemoteURL gets the Git remote origin URL for the given directory
 func getGitRemoteURL(dir string) (string, error) {
-	cmd := exec.Command("git", "-C", dir, "config", "--get", "remote.origin.url")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {

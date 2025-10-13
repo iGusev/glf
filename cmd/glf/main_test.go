@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,18 @@ import (
 	"github.com/igusev/glf/internal/types"
 	"github.com/spf13/cobra"
 )
+
+// testGitCommand creates a git command with a 5-second timeout context for tests
+func testGitCommand(args ...string) *exec.Cmd {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	cmd := exec.CommandContext(ctx, "git", args...)
+	// Store cancel function to be called after command completes
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
+	return cmd
+}
 
 func TestMaskToken(t *testing.T) {
 	tests := []struct {
@@ -557,7 +570,7 @@ func TestGetGitRemoteURL_NoRemote(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Initialize Git repo
-	cmd := exec.Command("git", "init")
+	cmd := testGitCommand("init")
 	cmd.Dir = tempDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
@@ -599,13 +612,13 @@ func TestRunOpenCurrent_WithValidRemote(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Initialize Git repo with matching remote
-	cmd := exec.Command("git", "init")
+	cmd := testGitCommand("init")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
-	cmd = exec.Command("git", "remote", "add", "origin", "git@gitlab.example.com:test/project.git")
+	cmd = testGitCommand("remote", "add", "origin", "git@gitlab.example.com:test/project.git")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add remote: %v", err)
@@ -662,13 +675,13 @@ func TestRunOpenCurrent_WithPublicRemote(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Initialize Git repo with GitHub remote
-	cmd := exec.Command("git", "init")
+	cmd := testGitCommand("init")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
-	cmd = exec.Command("git", "remote", "add", "origin", "git@github.com:user/repo.git")
+	cmd = testGitCommand("remote", "add", "origin", "git@github.com:user/repo.git")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add remote: %v", err)
@@ -721,7 +734,7 @@ func TestRunOpenCurrent_NoRemote(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Initialize Git repo WITHOUT remote
-	cmd := exec.Command("git", "init")
+	cmd := testGitCommand("init")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
@@ -777,13 +790,13 @@ func TestRunOpenCurrent_MismatchedRemote(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Initialize Git repo with different domain
-	cmd := exec.Command("git", "init")
+	cmd := testGitCommand("init")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
-	cmd = exec.Command("git", "remote", "add", "origin", "git@gitlab.other.com:test/project.git")
+	cmd = testGitCommand("remote", "add", "origin", "git@gitlab.other.com:test/project.git")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add remote: %v", err)
@@ -858,13 +871,13 @@ func TestRunSearch_WithDotArgument(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 
 	// Initialize Git repo with remote
-	cmd := exec.Command("git", "init")
+	cmd := testGitCommand("init")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
 
-	cmd = exec.Command("git", "remote", "add", "origin", "git@gitlab.example.com:test/project.git")
+	cmd = testGitCommand("remote", "add", "origin", "git@gitlab.example.com:test/project.git")
 	cmd.Dir = repoDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to add remote: %v", err)

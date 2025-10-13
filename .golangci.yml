@@ -87,6 +87,11 @@ linters:
           - staticcheck
         path: internal/gitlab/client\.go$
         text: SA1019.*gitlab\.NewClient.*deprecated
+      # Exclude var-naming false positive for standard 'types' package name
+      - linters:
+          - revive
+        path: internal/types/project_test\.go$
+        text: var-naming.*avoid meaningless package names
     paths:
       - vendor
       - third_party$
