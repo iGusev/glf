@@ -32,30 +32,30 @@ type HistoryLoadedMsg struct {
 
 // Model represents the TUI state
 type Model struct {
-	textInput   textinput.Model       // Search input field
-	styles      Styles                // Pre-configured styles
-	projects    []types.Project       // All projects (full list)
-	filtered    []index.CombinedMatch // Filtered projects with match data (fuzzy + description)
-	selected    string                // Selected project path (when user presses Enter)
-	cacheDir    string                // Cache directory for description index
-	gitlabURL   string                // GitLab server URL (for header display)
-	username    string                // GitLab username (for header display)
-	version     string                // Application version
-	syncError   error                 // Sync error if any
-	history     *history.History      // Selection frequency tracker
-	config      *config.Config        // Application config (for exclusions)
-	colorScheme *ColorScheme          // Adaptive color scheme
-	onSync      func() tea.Cmd        // Callback to trigger sync
-	cursor      int                   // Current cursor position in filtered list
-	width       int                   // Terminal width
-	height      int                   // Terminal height
-	quitting       bool // Whether user is quitting
-	syncing        bool // Whether sync is in progress
-	autoSync       bool // Whether to auto-sync on start
-	historyLoading bool // Whether history is being loaded
-	showExcluded   bool // Whether to show excluded projects
-	showScores     bool // Whether to show score breakdown
-	showHelp       bool // Whether to show help text
+	textInput      textinput.Model       // Search input field
+	styles         Styles                // Pre-configured styles
+	projects       []types.Project       // All projects (full list)
+	filtered       []index.CombinedMatch // Filtered projects with match data (fuzzy + description)
+	selected       string                // Selected project path (when user presses Enter)
+	cacheDir       string                // Cache directory for description index
+	gitlabURL      string                // GitLab server URL (for header display)
+	username       string                // GitLab username (for header display)
+	version        string                // Application version
+	syncError      error                 // Sync error if any
+	history        *history.History      // Selection frequency tracker
+	config         *config.Config        // Application config (for exclusions)
+	colorScheme    *ColorScheme          // Adaptive color scheme
+	onSync         func() tea.Cmd        // Callback to trigger sync
+	cursor         int                   // Current cursor position in filtered list
+	width          int                   // Terminal width
+	height         int                   // Terminal height
+	quitting       bool                  // Whether user is quitting
+	syncing        bool                  // Whether sync is in progress
+	autoSync       bool                  // Whether to auto-sync on start
+	historyLoading bool                  // Whether history is being loaded
+	showExcluded   bool                  // Whether to show excluded projects
+	showScores     bool                  // Whether to show score breakdown
+	showHelp       bool                  // Whether to show help text
 }
 
 // New creates a new TUI model with the given projects and optional initial query
@@ -180,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.history.RecordSelectionWithQuery(query, m.selected)
 					if err := m.history.Save(); err != nil {
 						// Silently fail - don't prevent selection
-					_ = err // explicitly ignore error
+						_ = err // explicitly ignore error
 					}
 				}
 			}
