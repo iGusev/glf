@@ -97,6 +97,8 @@ linters-settings:
       - unslice
       - valSwap
       - wrapperFunc
+    disabled-checks:
+      - ifElseChain  # False positives: checks different variables, bitwise flags, complex conditions
 
 issues:
   max-issues-per-linter: 0
