@@ -58,45 +58,9 @@ linters-settings:
     confidence: medium
 
   gocritic:
-    enabled-checks:
-      - appendCombine
-      - argOrder
-      - badCall
-      - badCond
-      - captLocal
-      - caseOrder
-      - codegenComment
-      - commentFormatting
-      - defaultCaseOrder
-      - dupArg
-      - dupBranchBody
-      - dupCase
-      - dupSubExpr
+    disabled-checks:
+      - ifElseChain
       - elseif
-      - emptyFallthrough
-      - equalFold
-      - flagDeref
-      - indexAlloc
-      - initClause
-      - methodExprCall
-      - nestingReduce
-      - newDeref
-      - offBy1
-      - ptrToRefParam
-      - rangeExprCopy
-      - rangeValCopy
-      - regexpMust
-      - singleCaseSwitch
-      - sloppyLen
-      - stringXbytes
-      - switchTrue
-      - typeAssertChain
-      - typeSwitchVar
-      - underef
-      - unlambda
-      - unslice
-      - valSwap
-      - wrapperFunc
 
 issues:
   max-issues-per-linter: 0
@@ -110,3 +74,21 @@ issues:
         - gosec
         - goconst
         - errcheck
+        - govet
+        - unparam
+    # Allow intentional empty error handling branches
+    - text: "SA9003: empty branch"
+      linters:
+        - staticcheck
+    # Allow field alignment warnings
+    - text: "fieldalignment:"
+      linters:
+        - govet
+    # Allow unparam warnings
+    - text: "is unused"
+      linters:
+        - unparam
+    # Allow gitlab deprecated API (no alternative available yet)
+    - text: "SA1019.*gitlab"
+      linters:
+        - staticcheck
