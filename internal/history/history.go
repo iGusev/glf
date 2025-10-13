@@ -129,6 +129,7 @@ func (h *History) LoadAsync() <-chan error {
 				if err := h.Save(); err != nil {
 					// Can't use logger here as it may not be initialized
 					// Silently fail - this is best-effort background cleanup
+					_ = err // explicitly ignore error
 				}
 			}()
 		}

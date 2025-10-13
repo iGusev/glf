@@ -97,8 +97,8 @@ func TestCleanMarkdown_InlineCode(t *testing.T) {
 	if strings.Contains(result, "git commit") {
 		t.Error("Result should not contain inline code content")
 	}
-	if strings.Contains(result, "Use") {
-		// This is expected - "Use" should be preserved
+	if !strings.Contains(result, "Use") {
+		t.Error("Result should preserve text around inline code")
 	}
 }
 

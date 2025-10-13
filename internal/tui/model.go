@@ -155,6 +155,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.history != nil {
 				if err := m.history.Save(); err != nil {
 					// Silently fail - don't prevent quit
+					_ = err // explicitly ignore error
 				}
 			}
 			return m, tea.Quit
@@ -179,6 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.history.RecordSelectionWithQuery(query, m.selected)
 					if err := m.history.Save(); err != nil {
 						// Silently fail - don't prevent selection
+					_ = err // explicitly ignore error
 					}
 				}
 			}
@@ -192,11 +194,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.config.IsExcluded(projectPath) {
 					// Already excluded - un-exclude it
 					if err := m.config.RemoveExclusionForPath(projectPath); err != nil {
+						_ = err // explicitly ignore error
 						// Silently fail - don't prevent UI operation
 					}
 				} else {
 					// Not excluded - exclude it
 					if err := m.config.AddExclusion(projectPath); err != nil {
+						_ = err // explicitly ignore error
 						// Silently fail - don't prevent UI operation
 					}
 				}
