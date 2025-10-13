@@ -142,6 +142,15 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 // runAutoGo automatically selects first result and opens it in browser
 func runAutoGo(projects []types.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
+	// Default sync function that calls performSyncInternal
+	syncFunc := func() error {
+		return performSyncInternal(cfg, true, false)
+	}
+	return runAutoGoWithSync(projects, query, cfg, descIndex, syncFunc)
+}
+
+// runAutoGoWithSync is the testable version that accepts a sync function
+func runAutoGoWithSync(projects []types.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex, syncFunc func() error) error {
 	if len(projects) == 0 {
 		return fmt.Errorf("no projects in cache")
 	}
@@ -200,7 +209,7 @@ func runAutoGo(projects []types.Project, query string, cfg *config.Config, descI
 	logger.Debug("Starting background sync...")
 	syncDone := make(chan error, 1)
 	go func() {
-		syncDone <- performSyncInternal(cfg, true, false)
+		syncDone <- syncFunc()
 	}()
 
 	// Wait for sync completion or timeout
@@ -599,10 +608,8 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 // forceFullSync=true forces full sync regardless of timestamps
 func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) error {
 	logInfo := logger.Info
-	logSuccess := logger.Success
 	if silent {
 		logInfo = logger.Debug
-		logSuccess = logger.Debug
 	}
 
 	// Create GitLab client with timeout
@@ -611,6 +618,18 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 	if err != nil {
 		logger.Error("Failed to create GitLab client")
 		return fmt.Errorf("GitLab client error: %w", err)
+	}
+
+	return performSyncInternalWithClient(cfg, client, silent, forceFullSync)
+}
+
+// performSyncInternalWithClient performs sync with an injected GitLab client (testable version)
+func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClient, silent bool, forceFullSync bool) error {
+	logInfo := logger.Info
+	logSuccess := logger.Success
+	if silent {
+		logInfo = logger.Debug
+		logSuccess = logger.Debug
 	}
 
 	// Test connection

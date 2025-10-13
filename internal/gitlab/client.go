@@ -12,7 +12,15 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-// Client wraps the GitLab API client
+// GitLabClient defines the interface for GitLab API operations
+// This interface enables mocking in tests while maintaining production functionality
+type GitLabClient interface {
+	FetchAllProjects(since *time.Time) ([]types.Project, error)
+	TestConnection() error
+	GetCurrentUsername() (string, error)
+}
+
+// Client wraps the GitLab API client and implements GitLabClient interface
 type Client struct {
 	client *gitlab.Client
 }
