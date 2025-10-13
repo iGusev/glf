@@ -1,6 +1,6 @@
 module github.com/igusev/glf
 
-go 1.25.2
+go 1.25
 
 require (
 	github.com/blevesearch/bleve/v2 v2.5.3
