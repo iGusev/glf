@@ -14,6 +14,8 @@ import (
 
 // GitLabClient defines the interface for GitLab API operations
 // This interface enables mocking in tests while maintaining production functionality
+//
+//nolint:revive // GitLabClient is intentional - distinguishes interface from concrete Client struct
 type GitLabClient interface {
 	FetchAllProjects(since *time.Time) ([]types.Project, error)
 	TestConnection() error

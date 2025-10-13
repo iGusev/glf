@@ -812,7 +812,9 @@ func TestOpenBrowser_EmptyURL(t *testing.T) {
 	// Test with empty URL
 	err := openBrowser("")
 	// Should not panic, may or may not error depending on platform
-	_ = err // Just verify no panic
+	if err != nil {
+		t.Logf("openBrowser with empty URL returned error (expected): %v", err)
+	}
 }
 
 func TestOpenBrowser_SpecialCharacters(t *testing.T) {
@@ -820,7 +822,9 @@ func TestOpenBrowser_SpecialCharacters(t *testing.T) {
 	testURL := "https://gitlab.example.com/test/project?foo=bar&baz=qux"
 	err := openBrowser(testURL)
 	// Should not panic
-	_ = err
+	if err != nil {
+		t.Logf("openBrowser with special chars returned error (expected in test env): %v", err)
+	}
 }
 
 func TestRunSearch_WithDotArgument(t *testing.T) {
@@ -1530,7 +1534,7 @@ func TestRunAutoGoWithSync_EmptyProjects(t *testing.T) {
 	}
 }
 
-// TestRunAutoGoWithSync_NoMatches tests error handling when search returns no results  
+// TestRunAutoGoWithSync_NoMatches tests error handling when search returns no results
 func TestRunAutoGoWithSync_NoMatches(t *testing.T) {
 	tempDir := t.TempDir()
 	cacheDir := filepath.Join(tempDir, "cache")
