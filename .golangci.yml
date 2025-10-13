@@ -76,7 +76,6 @@ linters-settings:
       - emptyFallthrough
       - equalFold
       - flagDeref
-      - ifElseChain
       - indexAlloc
       - initClause
       - methodExprCall
