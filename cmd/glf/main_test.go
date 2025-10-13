@@ -196,7 +196,14 @@ func TestIndexDescriptions_InvalidCacheDir(t *testing.T) {
 	// This test verifies error handling
 
 	// Use a path that doesn't exist and can't be created
-	invalidPath := "/nonexistent/readonly/path/that/cannot/be/created"
+	// Platform-specific invalid paths
+	var invalidPath string
+	switch runtime.GOOS {
+	case "windows":
+		invalidPath = `C:\nonexistent\readonly\path\that\cannot\be\created`
+	default:
+		invalidPath = "/nonexistent/readonly/path/that/cannot/be/created"
+	}
 
 	projects := []types.Project{
 		{
@@ -299,68 +306,99 @@ cache:
 
 func TestExtractProjectPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		remoteURL   string
-		gitlabURL   string
-		expected    string
-		expectError bool
-		errorMsg    string
+		name         string
+		remoteURL    string
+		gitlabURL    string
+		expectedPath string
+		expectedBase string
+		expectError  bool
+		errorMsg     string
 	}{
 		{
-			name:        "SSH format with .git suffix",
-			remoteURL:   "git@gitlab.example.com:namespace/project.git",
-			gitlabURL:   "https://gitlab.example.com",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "SSH format with .git suffix",
+			remoteURL:    "git@gitlab.example.com:namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
-			name:        "SSH format without .git suffix",
-			remoteURL:   "git@gitlab.example.com:namespace/project",
-			gitlabURL:   "https://gitlab.example.com",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "SSH format without .git suffix",
+			remoteURL:    "git@gitlab.example.com:namespace/project",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
-			name:        "HTTPS format with .git suffix",
-			remoteURL:   "https://gitlab.example.com/namespace/project.git",
-			gitlabURL:   "https://gitlab.example.com",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "SSH with ssh:// prefix and port",
+			remoteURL:    "ssh://git@gitlab.example.com:10022/namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
-			name:        "HTTPS format without .git suffix",
-			remoteURL:   "https://gitlab.example.com/namespace/project",
-			gitlabURL:   "https://gitlab.example.com",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "SSH with ssh:// prefix without port",
+			remoteURL:    "ssh://git@gitlab.example.com/namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
-			name:        "HTTP format with .git suffix",
-			remoteURL:   "http://gitlab.example.com/namespace/project.git",
-			gitlabURL:   "http://gitlab.example.com",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "SSH with ssh:// prefix and nested namespace",
+			remoteURL:    "ssh://git@gitlab.example.com:10022/docs/backend/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "docs/backend/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
-			name:        "nested namespace",
-			remoteURL:   "git@gitlab.example.com:group/subgroup/project.git",
-			gitlabURL:   "https://gitlab.example.com",
-			expected:    "group/subgroup/project",
-			expectError: false,
+			name:         "HTTPS format with .git suffix",
+			remoteURL:    "https://gitlab.example.com/namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
+		},
+		{
+			name:         "HTTPS format without .git suffix",
+			remoteURL:    "https://gitlab.example.com/namespace/project",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
+		},
+		{
+			name:         "HTTP format with .git suffix",
+			remoteURL:    "http://gitlab.example.com/namespace/project.git",
+			gitlabURL:    "http://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "http://gitlab.example.com",
+			expectError:  false,
+		},
+		{
+			name:         "nested namespace",
+			remoteURL:    "git@gitlab.example.com:group/subgroup/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "group/subgroup/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
 			name:        "domain mismatch SSH",
 			remoteURL:   "git@gitlab.other.com:namespace/project.git",
 			gitlabURL:   "https://gitlab.example.com",
 			expectError: true,
-			errorMsg:    "does not match configured GitLab domain",
+			errorMsg:    "does not match configured GitLab",
 		},
 		{
 			name:        "domain mismatch HTTPS",
 			remoteURL:   "https://gitlab.other.com/namespace/project.git",
 			gitlabURL:   "https://gitlab.example.com",
 			expectError: true,
-			errorMsg:    "does not match configured GitLab domain",
+			errorMsg:    "does not match configured GitLab",
 		},
 		{
 			name:        "invalid SSH format - no colon",
@@ -374,7 +412,7 @@ func TestExtractProjectPath(t *testing.T) {
 			remoteURL:   "https://gitlab.example.com",
 			gitlabURL:   "https://gitlab.example.com",
 			expectError: true,
-			errorMsg:    "invalid HTTPS remote URL format",
+			errorMsg:    "invalid remote URL format",
 		},
 		{
 			name:        "unsupported protocol",
@@ -384,24 +422,92 @@ func TestExtractProjectPath(t *testing.T) {
 			errorMsg:    "unsupported git remote URL format",
 		},
 		{
-			name:        "GitLab URL with trailing slash",
-			remoteURL:   "https://gitlab.example.com/namespace/project.git",
-			gitlabURL:   "https://gitlab.example.com/",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "GitLab URL with trailing slash",
+			remoteURL:    "https://gitlab.example.com/namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com/",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
 		},
 		{
-			name:        "project path with leading slash",
-			remoteURL:   "https://gitlab.example.com//namespace/project.git",
-			gitlabURL:   "https://gitlab.example.com",
-			expected:    "namespace/project",
-			expectError: false,
+			name:         "project path with leading slash",
+			remoteURL:    "https://gitlab.example.com//namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com",
+			expectError:  false,
+		},
+		// Port handling tests
+		{
+			name:         "HTTPS with port",
+			remoteURL:    "https://gitlab.example.com:8443/namespace/project.git",
+			gitlabURL:    "https://gitlab.example.com:8443",
+			expectedPath: "namespace/project",
+			expectedBase: "https://gitlab.example.com:8443",
+			expectError:  false,
+		},
+		{
+			name:         "HTTP with port",
+			remoteURL:    "http://gitlab.example.com:8080/namespace/project.git",
+			gitlabURL:    "http://gitlab.example.com:8080",
+			expectedPath: "namespace/project",
+			expectedBase: "http://gitlab.example.com:8080",
+			expectError:  false,
+		},
+		// Public repository tests
+		{
+			name:         "GitHub SSH",
+			remoteURL:    "git@github.com:user/repo.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "user/repo",
+			expectedBase: "https://github.com",
+			expectError:  false,
+		},
+		{
+			name:         "GitHub HTTPS",
+			remoteURL:    "https://github.com/user/repo.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "user/repo",
+			expectedBase: "https://github.com",
+			expectError:  false,
+		},
+		{
+			name:         "GitLab.com SSH",
+			remoteURL:    "git@gitlab.com:user/repo.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "user/repo",
+			expectedBase: "https://gitlab.com",
+			expectError:  false,
+		},
+		{
+			name:         "GitLab.com HTTPS",
+			remoteURL:    "https://gitlab.com/user/repo.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "user/repo",
+			expectedBase: "https://gitlab.com",
+			expectError:  false,
+		},
+		{
+			name:         "Bitbucket SSH",
+			remoteURL:    "git@bitbucket.org:user/repo.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "user/repo",
+			expectedBase: "https://bitbucket.org",
+			expectError:  false,
+		},
+		{
+			name:         "Bitbucket HTTPS",
+			remoteURL:    "https://bitbucket.org/user/repo.git",
+			gitlabURL:    "https://gitlab.example.com",
+			expectedPath: "user/repo",
+			expectedBase: "https://bitbucket.org",
+			expectError:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := extractProjectPath(tt.remoteURL, tt.gitlabURL)
+			projectPath, baseURL, err := extractProjectPath(tt.remoteURL, tt.gitlabURL)
 
 			if tt.expectError {
 				if err == nil {
@@ -413,8 +519,11 @@ func TestExtractProjectPath(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				if result != tt.expected {
-					t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+				if projectPath != tt.expectedPath {
+					t.Errorf("Expected path '%s', got '%s'", tt.expectedPath, projectPath)
+				}
+				if baseURL != tt.expectedBase {
+					t.Errorf("Expected base URL '%s', got '%s'", tt.expectedBase, baseURL)
 				}
 			}
 		})
