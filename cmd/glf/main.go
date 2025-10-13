@@ -114,11 +114,19 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to open index: %w", err)
 	}
 
+	// Ensure index is closed on all return paths
+	// Set this to false before interactive mode to allow explicit close there
+	shouldCloseIndex := true
+	defer func() {
+		if shouldCloseIndex {
+			if err := descIndex.Close(); err != nil {
+				logger.Debug("Failed to close index: %v", err)
+			}
+		}
+	}()
+
 	allProjects, err := descIndex.GetAllProjects()
 	if err != nil {
-		if closeErr := descIndex.Close(); closeErr != nil {
-			logger.Debug("Failed to close index: %v", closeErr)
-		}
 		return fmt.Errorf("failed to load projects: %w", err)
 	}
 
@@ -131,15 +139,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		if query == "" {
 			return fmt.Errorf("-g/--go requires a search query")
 		}
-		defer func() {
-			if err := descIndex.Close(); err != nil {
-				logger.Debug("Failed to close index: %v", err)
-			}
-		}()
 		return runAutoGo(allProjects, query, cfg, descIndex)
 	}
 
-	// Close index before launching TUI (TUI will open it again)
+	// Going to interactive mode - close index explicitly before launching TUI
+	// (TUI will open it again when needed)
+	shouldCloseIndex = false
 	if err := descIndex.Close(); err != nil {
 		logger.Debug("Failed to close index: %v", err)
 	}
