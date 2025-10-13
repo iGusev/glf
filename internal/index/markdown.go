@@ -60,11 +60,8 @@ func (te *textExtractor) Visit(node ast.Node, entering bool) ast.WalkStatus {
 
 	switch n := node.(type) {
 	case *ast.Heading:
-		if entering {
-			te.buf.WriteString("\n")
-		} else {
-			te.buf.WriteString("\n")
-		}
+		// Add newline before and after heading
+		te.buf.WriteString("\n")
 
 	case *ast.Paragraph:
 		if !entering {
