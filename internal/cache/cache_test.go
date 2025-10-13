@@ -3,6 +3,7 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -440,6 +441,9 @@ func TestLoadLastFullSyncTime_CorruptedFile(t *testing.T) {
 }
 
 func TestWriteProjects_ReadOnlyDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}
@@ -466,6 +470,9 @@ func TestWriteProjects_ReadOnlyDir(t *testing.T) {
 }
 
 func TestSaveLastSyncTime_ReadOnlyDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}
@@ -491,6 +498,9 @@ func TestSaveLastSyncTime_ReadOnlyDir(t *testing.T) {
 }
 
 func TestSaveLastFullSyncTime_ReadOnlyDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}

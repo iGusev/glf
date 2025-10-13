@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -85,6 +86,10 @@ func TestExpandPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip "tilde with path" test on Windows due to path separator differences
+			if runtime.GOOS == "windows" && tt.name == "tilde with path" {
+				t.Skip("Skipping test on Windows: path separators differ")
+			}
 			result := expandPath(tt.path)
 			if result != tt.expected {
 				t.Errorf("expandPath(%q) = %q, want %q", tt.path, result, tt.expected)
@@ -890,6 +895,9 @@ func TestLoad_MissingToken(t *testing.T) {
 
 // TestSave_EnsureConfigDirError tests Save() when EnsureConfigDir fails (line 271-273)
 func TestSave_EnsureConfigDirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}
@@ -940,6 +948,9 @@ func TestSave_EnsureConfigDirError(t *testing.T) {
 
 // TestCreateExampleConfig_EnsureConfigDirError tests CreateExampleConfig() when EnsureConfigDir fails (line 292-294)
 func TestCreateExampleConfig_EnsureConfigDirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping test when running as root")
 	}

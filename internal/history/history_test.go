@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -788,6 +789,9 @@ func TestHistory_GetAllScores_SkipsOldEntries(t *testing.T) {
 
 func TestHistory_Save_MkdirError(t *testing.T) {
 	// Skip on systems where we can't test permissions
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test when running as root")
 	}
@@ -819,6 +823,9 @@ func TestHistory_Save_MkdirError(t *testing.T) {
 
 func TestHistory_Save_CreateFileError(t *testing.T) {
 	// Skip on systems where we can't test permissions
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test when running as root")
 	}
