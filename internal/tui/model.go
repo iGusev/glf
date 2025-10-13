@@ -315,7 +315,7 @@ func (m *Model) filter() {
 
 // renderMatch renders a matched project with visual indicators and optional snippet
 // Returns multiple lines if snippet is present and item is selected
-func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, query string, isSelected bool, showScores bool) string {
+func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, query string, showScores bool) string {
 	var result strings.Builder
 
 	// Get display string
@@ -551,8 +551,7 @@ func (m Model) View() string {
 
 		// Render project name (with visual indicators and optional snippet)
 		query := strings.TrimSpace(m.textInput.Value())
-		isSelected := (i == m.cursor)
-		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, query, isSelected, m.showScores)
+		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, query, m.showScores)
 
 		// Split content by lines to apply background to each line separately
 		lines := strings.Split(projectContent, "\n")

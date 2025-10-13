@@ -166,14 +166,14 @@ func TestHistory_ConcurrentAccess(t *testing.T) {
 	done := make(chan bool)
 
 	for i := 0; i < 10; i++ {
-		go func(id int) {
+		go func() {
 			for j := 0; j < 100; j++ {
 				h.RecordSelection("project-a")
 				_ = h.GetScore("project-a")
 				_ = h.GetAllScores()
 			}
 			done <- true
-		}(i)
+		}()
 	}
 
 	// Wait for all goroutines

@@ -114,3 +114,12 @@ issues:
         - goconst
         - errcheck
         - govet  # Excludes fieldalignment from test files
+    # Exclude deprecation warnings for gitlab client (library migration requires separate task)
+    - path: internal/gitlab/client\.go$
+      linters:
+        - staticcheck
+      text: "SA1019.*gitlab\\.Client.*deprecated"
+    - path: internal/gitlab/client\.go$
+      linters:
+        - staticcheck
+      text: "SA1019.*gitlab\\.NewClient.*deprecated"
