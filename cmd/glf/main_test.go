@@ -205,8 +205,9 @@ func TestIndexDescriptions_InvalidCacheDir(t *testing.T) {
 	var invalidPath string
 	switch runtime.GOOS {
 	case platformWindows:
-		// Use Windows reserved device name which cannot be a directory
-		invalidPath = `C:\CON\invalid\path`
+		// Use Windows device namespace which cannot be used as a regular directory path
+		// The \\.\CON prefix accesses the CON device directly and cannot be used as a directory
+		invalidPath = `\\.\CON`
 	default:
 		invalidPath = "/nonexistent/readonly/path/that/cannot/be/created"
 	}
