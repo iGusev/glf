@@ -296,3 +296,151 @@ cache:
 		t.Errorf("Expected 'index not found' error, got: %v", err)
 	}
 }
+
+func TestExtractProjectPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		remoteURL   string
+		gitlabURL   string
+		expected    string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "SSH format with .git suffix",
+			remoteURL:   "git@gitlab.example.com:namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+		{
+			name:        "SSH format without .git suffix",
+			remoteURL:   "git@gitlab.example.com:namespace/project",
+			gitlabURL:   "https://gitlab.example.com",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+		{
+			name:        "HTTPS format with .git suffix",
+			remoteURL:   "https://gitlab.example.com/namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+		{
+			name:        "HTTPS format without .git suffix",
+			remoteURL:   "https://gitlab.example.com/namespace/project",
+			gitlabURL:   "https://gitlab.example.com",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+		{
+			name:        "HTTP format with .git suffix",
+			remoteURL:   "http://gitlab.example.com/namespace/project.git",
+			gitlabURL:   "http://gitlab.example.com",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+		{
+			name:        "nested namespace",
+			remoteURL:   "git@gitlab.example.com:group/subgroup/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expected:    "group/subgroup/project",
+			expectError: false,
+		},
+		{
+			name:        "domain mismatch SSH",
+			remoteURL:   "git@gitlab.other.com:namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expectError: true,
+			errorMsg:    "does not match configured GitLab domain",
+		},
+		{
+			name:        "domain mismatch HTTPS",
+			remoteURL:   "https://gitlab.other.com/namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expectError: true,
+			errorMsg:    "does not match configured GitLab domain",
+		},
+		{
+			name:        "invalid SSH format - no colon",
+			remoteURL:   "git@gitlab.example.com/namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expectError: true,
+			errorMsg:    "invalid SSH remote URL format",
+		},
+		{
+			name:        "invalid HTTPS format - no path",
+			remoteURL:   "https://gitlab.example.com",
+			gitlabURL:   "https://gitlab.example.com",
+			expectError: true,
+			errorMsg:    "invalid HTTPS remote URL format",
+		},
+		{
+			name:        "unsupported protocol",
+			remoteURL:   "ftp://gitlab.example.com/namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expectError: true,
+			errorMsg:    "unsupported git remote URL format",
+		},
+		{
+			name:        "GitLab URL with trailing slash",
+			remoteURL:   "https://gitlab.example.com/namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com/",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+		{
+			name:        "project path with leading slash",
+			remoteURL:   "https://gitlab.example.com//namespace/project.git",
+			gitlabURL:   "https://gitlab.example.com",
+			expected:    "namespace/project",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := extractProjectPath(tt.remoteURL, tt.gitlabURL)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got nil", tt.errorMsg)
+				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing '%s', got: %v", tt.errorMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if result != tt.expected {
+					t.Errorf("Expected '%s', got '%s'", tt.expected, result)
+				}
+			}
+		})
+	}
+}
+
+func TestGetGitRemoteURL_NonGitDirectory(t *testing.T) {
+	// Test with a directory that's not a Git repository
+	tempDir := t.TempDir()
+
+	_, err := getGitRemoteURL(tempDir)
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsMiddle(s, substr)))
+}
+
+func containsMiddle(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

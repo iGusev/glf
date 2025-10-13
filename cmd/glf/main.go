@@ -58,6 +58,7 @@ Examples:
   glf                  # Interactive fuzzy finder
   glf backend          # Direct search for "backend"
   glf api ingress      # Multi-word search for "api ingress"
+  glf .                # Open current Git repository in browser
   glf sync             # Search for "sync" (not a command!)
   glf --sync           # Synchronize projects cache
   glf --sync --full    # Force full sync
@@ -80,6 +81,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("configuration error: %w", err)
+	}
+
+	// Handle "glf ." - open current Git repository
+	if len(args) == 1 && args[0] == "." {
+		return runOpenCurrent(cfg)
 	}
 
 	// Handle sync mode
@@ -232,6 +238,145 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+// getGitRemoteURL gets the Git remote origin URL for the given directory
+func getGitRemoteURL(dir string) (string, error) {
+	cmd := exec.Command("git", "-C", dir, "config", "--get", "remote.origin.url")
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("not a git repository or no remote origin configured: %s", string(exitErr.Stderr))
+		}
+		return "", fmt.Errorf("failed to get git remote URL: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// extractProjectPath extracts the project path from a Git remote URL and validates it matches the GitLab server
+func extractProjectPath(remoteURL, gitlabURL string) (string, error) {
+	// Parse GitLab URL to get the domain
+	gitlabURL = strings.TrimSuffix(gitlabURL, "/")
+	var gitlabDomain string
+
+	// Extract domain from GitLab URL (handle https:// and http://)
+	if strings.HasPrefix(gitlabURL, "https://") {
+		gitlabDomain = strings.TrimPrefix(gitlabURL, "https://")
+	} else if strings.HasPrefix(gitlabURL, "http://") {
+		gitlabDomain = strings.TrimPrefix(gitlabURL, "http://")
+	} else {
+		return "", fmt.Errorf("invalid GitLab URL format: %s", gitlabURL)
+	}
+
+	// Remove any path components from domain (e.g., gitlab.com/path -> gitlab.com)
+	if idx := strings.Index(gitlabDomain, "/"); idx != -1 {
+		gitlabDomain = gitlabDomain[:idx]
+	}
+
+	var projectPath string
+
+	// Handle SSH format: git@gitlab.com:namespace/project.git
+	if strings.HasPrefix(remoteURL, "git@") {
+		parts := strings.SplitN(remoteURL, ":", 2)
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid SSH remote URL format: %s", remoteURL)
+		}
+
+		// Extract domain from git@domain
+		remoteDomain := strings.TrimPrefix(parts[0], "git@")
+
+		// Validate domain matches
+		if remoteDomain != gitlabDomain {
+			return "", fmt.Errorf("git remote domain '%s' does not match configured GitLab domain '%s'", remoteDomain, gitlabDomain)
+		}
+
+		// Extract project path and remove .git suffix
+		projectPath = strings.TrimSuffix(parts[1], ".git")
+	} else if strings.HasPrefix(remoteURL, "https://") || strings.HasPrefix(remoteURL, "http://") {
+		// Handle HTTPS format: https://gitlab.com/namespace/project.git
+		var remoteDomain string
+		var pathPart string
+
+		if strings.HasPrefix(remoteURL, "https://") {
+			rest := strings.TrimPrefix(remoteURL, "https://")
+			parts := strings.SplitN(rest, "/", 2)
+			if len(parts) != 2 {
+				return "", fmt.Errorf("invalid HTTPS remote URL format: %s", remoteURL)
+			}
+			remoteDomain = parts[0]
+			pathPart = parts[1]
+		} else {
+			rest := strings.TrimPrefix(remoteURL, "http://")
+			parts := strings.SplitN(rest, "/", 2)
+			if len(parts) != 2 {
+				return "", fmt.Errorf("invalid HTTP remote URL format: %s", remoteURL)
+			}
+			remoteDomain = parts[0]
+			pathPart = parts[1]
+		}
+
+		// Validate domain matches
+		if remoteDomain != gitlabDomain {
+			return "", fmt.Errorf("git remote domain '%s' does not match configured GitLab domain '%s'", remoteDomain, gitlabDomain)
+		}
+
+		// Extract project path and remove .git suffix
+		projectPath = strings.TrimSuffix(pathPart, ".git")
+	} else {
+		return "", fmt.Errorf("unsupported git remote URL format: %s (expected SSH or HTTPS)", remoteURL)
+	}
+
+	// Ensure project path doesn't start with /
+	projectPath = strings.TrimPrefix(projectPath, "/")
+
+	if projectPath == "" {
+		return "", fmt.Errorf("could not extract project path from remote URL: %s", remoteURL)
+	}
+
+	return projectPath, nil
+}
+
+// runOpenCurrent opens the current directory's Git repository in the browser
+func runOpenCurrent(cfg *config.Config) error {
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Get Git remote URL
+	remoteURL, err := getGitRemoteURL(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to get git remote URL: %w", err)
+	}
+
+	logger.Debug("Git remote URL: %s", remoteURL)
+
+	// Extract project path and validate domain
+	projectPath, err := extractProjectPath(remoteURL, cfg.GitLab.URL)
+	if err != nil {
+		return fmt.Errorf("failed to extract project path: %w", err)
+	}
+
+	logger.Debug("Extracted project path: %s", projectPath)
+
+	// Construct GitLab project URL
+	gitlabURL := strings.TrimSuffix(cfg.GitLab.URL, "/")
+	projectURL := fmt.Sprintf("%s/%s", gitlabURL, projectPath)
+
+	// Open in browser
+	logger.Debug("Opening browser with URL: %s", projectURL)
+	if err := openBrowser(projectURL); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to open browser: %v\n", err)
+		logger.Debug("Browser open error: %v", err)
+	} else {
+		logger.Debug("Browser command executed successfully")
+	}
+
+	// Output URL to stdout
+	fmt.Println(projectURL)
+
+	return nil
 }
 
 // runInteractive launches the interactive TUI with optional initial query

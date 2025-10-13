@@ -61,43 +61,17 @@ linters-settings:
   gocritic:
     enabled-checks:
       - appendCombine
-      - argOrder
-      - badCall
-      - badCond
-      - captLocal
-      - caseOrder
-      - codegenComment
-      - commentFormatting
-      - defaultCaseOrder
-      - dupArg
-      - dupBranchBody
-      - dupCase
-      - dupSubExpr
-      - elseif
       - emptyFallthrough
       - equalFold
-      - flagDeref
       - indexAlloc
       - initClause
       - methodExprCall
       - nestingReduce
-      - newDeref
-      - offBy1
       - ptrToRefParam
       - rangeExprCopy
       - rangeValCopy
-      - regexpMust
-      - singleCaseSwitch
-      - sloppyLen
       - stringXbytes
-      - switchTrue
       - typeAssertChain
-      - typeSwitchVar
-      - underef
-      - unlambda
-      - unslice
-      - valSwap
-      - wrapperFunc
     disabled-checks:
       - ifElseChain  # False positives: checks different variables, bitwise flags, complex conditions
 

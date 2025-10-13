@@ -887,6 +887,113 @@ func TestHistory_Save_RenameError(t *testing.T) {
 	}
 }
 
+func TestHistory_LoadAsync_WithCleanupBackgroundSave(t *testing.T) {
+	// Test that LoadAsync triggers cleanup and background save for old entries
+	tempDir := t.TempDir()
+	historyPath := filepath.Join(tempDir, "history_cleanup.gob")
+
+	// Create history with mix of old and new entries
+	h1 := New(historyPath)
+
+	// Add old entries (beyond maxAgeDays)
+	h1.mu.Lock()
+	h1.selections["very-old-project"] = SelectionInfo{
+		Count:    5,
+		LastUsed: time.Now().Add(-150 * 24 * time.Hour), // 150 days old
+	}
+	h1.selections["old-project"] = SelectionInfo{
+		Count:    3,
+		LastUsed: time.Now().Add(-120 * 24 * time.Hour), // 120 days old
+	}
+	h1.mu.Unlock()
+
+	// Add recent entry
+	h1.RecordSelection("new-project")
+
+	// Save to disk
+	if err := h1.Save(); err != nil {
+		t.Fatalf("Failed to save initial history: %v", err)
+	}
+
+	// Load with new History instance - should trigger cleanup
+	h2 := New(historyPath)
+	errCh := h2.LoadAsync()
+	err := <-errCh
+	if err != nil {
+		t.Fatalf("Failed to load history: %v", err)
+	}
+
+	// Give background save goroutine time to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify old entries were cleaned
+	if score := h2.GetScore("very-old-project"); score != 0 {
+		t.Errorf("Very old project should have score 0, got %d", score)
+	}
+	if score := h2.GetScore("old-project"); score != 0 {
+		t.Errorf("Old project should have score 0, got %d", score)
+	}
+
+	// New project should remain
+	if score := h2.GetScore("new-project"); score == 0 {
+		t.Error("New project should have non-zero score")
+	}
+
+	// Verify cleanup was saved to disk by loading again
+	h3 := New(historyPath)
+	errCh = h3.LoadAsync()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Failed to load after cleanup: %v", err)
+	}
+
+	// Old entries should still be gone
+	_, unique := h3.Stats()
+	if unique != 1 {
+		t.Errorf("Expected 1 unique item after cleanup, got %d", unique)
+	}
+}
+
+func TestHistory_LoadAsync_QuerySelectionsNil(t *testing.T) {
+	// Test loading when QuerySelections is nil in saved data
+	tempDir := t.TempDir()
+	historyPath := filepath.Join(tempDir, "history_nil_qs.gob")
+
+	// Create history data with nil QuerySelections
+	h1 := New(historyPath)
+	h1.RecordSelection("project-a")
+
+	// Manually set QuerySelections to nil before saving
+	h1.mu.Lock()
+	h1.querySelections = nil
+	h1.dirty = true
+	h1.mu.Unlock()
+
+	// Save
+	if err := h1.Save(); err != nil {
+		t.Fatalf("Failed to save: %v", err)
+	}
+
+	// Load should initialize empty map
+	h2 := New(historyPath)
+	errCh := h2.LoadAsync()
+	if err := <-errCh; err != nil {
+		t.Fatalf("Failed to load: %v", err)
+	}
+
+	// QuerySelections should be initialized to empty map, not nil
+	h2.mu.RLock()
+	if h2.querySelections == nil {
+		t.Error("QuerySelections should be initialized, not nil")
+	}
+	h2.mu.RUnlock()
+
+	// Should work without panicking
+	h2.RecordSelectionWithQuery("backend", "project-b")
+	if score := h2.GetScoreForQuery("backend", "project-b"); score == 0 {
+		t.Error("Should be able to record and get query-specific scores")
+	}
+}
+
 // Helper function for string matching
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && findSubstring(s, substr)

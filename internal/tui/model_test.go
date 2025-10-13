@@ -547,6 +547,10 @@ func TestUpdate_Quit(t *testing.T) {
 	if !updatedModel.quitting {
 		t.Error("Expected quitting to be true after Esc")
 	}
+
+	if cmd == nil {
+		t.Error("Expected tea.Quit command")
+	}
 }
 
 // TestUpdate_Navigation verifies cursor navigation
