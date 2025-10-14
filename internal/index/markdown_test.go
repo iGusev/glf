@@ -358,3 +358,15 @@ func TestCleanMarkdown_CyrillicText(t *testing.T) {
 		t.Errorf("CleanMarkdown() = %q, want %q", result, expected)
 	}
 }
+
+func TestCleanMarkdown_Hardbreak(t *testing.T) {
+	// Test hardbreak: two spaces + newline creates a hard break
+	// Should also be converted to space
+	input := "First line  \nSecond line"
+	result := CleanMarkdown(input)
+
+	// Hardbreak should be converted to space
+	if !strings.Contains(result, "First line Second line") {
+		t.Errorf("Hardbreak should be converted to space, got: %q", result)
+	}
+}

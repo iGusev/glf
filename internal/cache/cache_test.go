@@ -827,3 +827,63 @@ func TestLoadUsername_WithWhitespace(t *testing.T) {
 		t.Errorf("Username should be trimmed: got %q, want %q", loaded, "test-user")
 	}
 }
+
+// TestSaveUsername_EnsureDirError tests SaveUsername when EnsureDir fails
+func TestSaveUsername_EnsureDirError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
+	if os.Getuid() == 0 {
+		t.Skip("Skipping test when running as root")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "glf-cache-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Make parent directory read-only to prevent EnsureDir from creating subdirectory
+	if err := os.Chmod(tmpDir, 0444); err != nil {
+		t.Fatalf("Failed to chmod: %v", err)
+	}
+	defer os.Chmod(tmpDir, 0755) // Restore for cleanup
+
+	cache := New(filepath.Join(tmpDir, "subdir"))
+
+	err = cache.SaveUsername("test-user")
+	if err == nil {
+		t.Error("SaveUsername should fail when EnsureDir fails")
+	}
+	if err != nil && !contains(err.Error(), "failed to create cache directory") {
+		t.Errorf("Expected 'failed to create cache directory' in error, got: %v", err)
+	}
+}
+
+// TestLoadUsername_FileIsDirectory tests LoadUsername when .username is a directory
+func TestLoadUsername_FileIsDirectory(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "glf-cache-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cache := New(tmpDir)
+
+	// Create directory with username file name
+	usernamePath := filepath.Join(tmpDir, ".username")
+	if err := cache.EnsureDir(); err != nil {
+		t.Fatalf("EnsureDir failed: %v", err)
+	}
+	if err := os.Mkdir(usernamePath, 0755); err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+
+	_, err = cache.LoadUsername()
+	if err == nil {
+		t.Error("LoadUsername should fail when username file is a directory")
+	}
+	if err != nil && !contains(err.Error(), "failed to read username") {
+		t.Errorf("Expected 'failed to read username' in error, got: %v", err)
+	}
+}
