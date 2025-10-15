@@ -86,6 +86,16 @@ brews:
     install: |
       bin.install "glf"
 
+scoops:
+  - repository:
+      owner: igusev
+      name: scoop-bucket
+      branch: main
+    directory: bucket
+    homepage: "https://github.com/igusev/glf"
+    description: "Fast CLI tool for instant fuzzy search across self-hosted GitLab projects"
+    license: "MIT"
+
 changelog:
   sort: asc
   use: github
