@@ -86,8 +86,8 @@ func printLogo(ver string) {
 	title := lipgloss.NewStyle().Foreground(gitlabOrange).Bold(true).Render("glf")
 	versionText := lipgloss.NewStyle().Foreground(mutedGray).Render(ver)
 
-	fmt.Printf("  %s %s %s\n", gradient, title, versionText)
-	fmt.Println(mutedStyle.Render("  GitLab Fuzzy Finder"))
+	fmt.Printf("%s %s %s\n", gradient, title, versionText)
+	fmt.Println(mutedStyle.Render("GitLab Fuzzy Finder"))
 	fmt.Println()
 }
 
@@ -129,7 +129,7 @@ func printExample(text string) {
 
 // printURL prints a styled URL
 func printURL(url string) {
-	fmt.Println("  " + urlStyle.Render(url))
+	fmt.Println(urlStyle.Render(url))
 }
 
 // printPrompt prints an input prompt on same line
@@ -149,5 +149,5 @@ func printSeparator() {
 
 // printBullet prints a bullet point
 func printBullet(text string) {
-	fmt.Println("  • " + text)
+	fmt.Println("• " + text)
 }
