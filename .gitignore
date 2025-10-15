@@ -38,6 +38,9 @@ Thumbs.db
 # Temporary files
 tmp/
 
+# Build artifacts (GoReleaser)
+dist/
+
 # Claude Code and Serena MCP
 .claude/
 .serena/
