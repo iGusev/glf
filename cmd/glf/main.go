@@ -1336,7 +1336,7 @@ func init() {
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildTime)
 
 	// Disable auto-generated commands
-	rootCmd.CompletionOptions.DisableDefaultCmd = true // Disable 'completion' command
+	rootCmd.CompletionOptions.DisableDefaultCmd = true   // Disable 'completion' command
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true}) // Disable 'help' command (help flag still works)
 
 	// Add flags
