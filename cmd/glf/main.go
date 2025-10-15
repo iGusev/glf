@@ -1108,12 +1108,12 @@ func generateTokenURL(gitlabURL string) string {
 	baseURL := strings.TrimSuffix(gitlabURL, "/")
 
 	// Build URL with query parameters to pre-fill token name and scopes
+	// GitLab expects: ?name=...&scopes=scope1,scope2,scope3
 	params := url.Values{}
 	params.Set("name", "glf-cli-token")
-	params.Add("scopes[]", "read_api")
-	params.Add("scopes[]", "read_repository")
+	params.Set("scopes", "read_api,read_repository")
 
-	tokenURL := baseURL + "/-/user_settings/personal_access_tokens?" + params.Encode()
+	tokenURL := baseURL + "/-/profile/personal_access_tokens?" + params.Encode()
 	return tokenURL
 }
 
