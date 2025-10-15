@@ -62,7 +62,7 @@ Download the latest release for your platform from the [releases page](https://g
 Run the interactive configuration wizard:
 
 ```bash
-glf config
+glf --init
 ```
 
 This will prompt you for:
@@ -71,6 +71,12 @@ This will prompt you for:
 - API timeout (default: 30 seconds)
 
 Configuration is saved to `~/.config/glf/config.yaml`.
+
+To reset and reconfigure:
+
+```bash
+glf --init --reset
+```
 
 #### Manual Configuration
 
@@ -101,7 +107,7 @@ export GLF_GITLAB_TIMEOUT=30  # optional
 1. Go to your GitLab instance
 2. Navigate to **User Settings** → **Access Tokens**
 3. Create a new token with `read_api` scope
-4. Copy the token and use it in `glf config`
+4. Copy the token and use it in `glf --init`
 
 ### Sync Projects
 
@@ -145,14 +151,17 @@ glf backend
 
 ```
 glf [query]           Search projects (default: interactive TUI)
-glf config            Configure GitLab connection
-glf sync              Sync projects from GitLab to local cache
+glf --init            Configure GitLab connection
+glf --init --reset    Reset and reconfigure GitLab connection
+glf --sync            Sync projects from GitLab to local cache
 glf --help            Show help
 ```
 
 ### Flags
 
 ```
+--init                Run interactive configuration wizard
+--reset               Reset configuration and start from scratch (use with --init)
 -o, --go              Auto-select first result and open in browser
 -g, --open            Alias for --go (for compatibility)
 -s, --sync            Synchronize projects cache
@@ -192,7 +201,10 @@ glf sync --verbose
 glf --scores
 
 # Configure GitLab connection
-glf config
+glf --init
+
+# Reset and reconfigure
+glf --init --reset
 ```
 
 ### Smart Ranking
@@ -329,7 +341,10 @@ glf sync
 
 ```bash
 # Reconfigure GitLab connection
-glf config
+glf --init
+
+# Reset and reconfigure from scratch
+glf --init --reset
 
 # Check current configuration
 cat ~/.config/glf/config.yaml

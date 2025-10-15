@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/url"
@@ -22,6 +23,7 @@ import (
 	"github.com/igusev/glf/internal/tui"
 	"github.com/igusev/glf/internal/types"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // Build-time variables (set via ldflags)
@@ -35,6 +37,7 @@ var (
 const (
 	syncModeFull        = "full"
 	syncModeIncremental = "incremental"
+	responseYes         = "yes"
 )
 
 // Platform constants for runtime.GOOS
@@ -50,6 +53,8 @@ var (
 	autoGo     bool // Flag to automatically select first result and open in browser
 	doSync     bool // Flag to perform sync instead of search
 	forceFull  bool // Flag to force full sync (ignore incremental)
+	doInit     bool // Flag to run interactive configuration wizard
+	resetFlag  bool // Flag to reset configuration and start from scratch
 )
 
 var rootCmd = &cobra.Command{
@@ -86,6 +91,11 @@ Configuration:
 
 // runSearch handles the default search behavior
 func runSearch(cmd *cobra.Command, args []string) error {
+	// Handle --init flag first (before loading config)
+	if doInit {
+		return runConfigWizard()
+	}
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -842,9 +852,507 @@ func indexDescriptions(projects []types.Project, cacheDir string, silent bool) e
 	return nil
 }
 
+// runConfigWizard runs the interactive configuration wizard
+func runConfigWizard() error {
+	reader := bufio.NewReader(os.Stdin)
+
+	// Check if config exists
+	configPath := filepath.Join(os.Getenv("HOME"), ".config", "glf", "config.yaml")
+	configExists := false
+	if _, err := os.Stat(configPath); err == nil {
+		configExists = true
+	}
+
+	// Handle reset flag
+	if resetFlag {
+		if !configExists {
+			fmt.Println("No existing configuration found.")
+			fmt.Println()
+			// Continue to wizard
+		} else {
+			confirmed, err := confirmReset(reader)
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				fmt.Println("Configuration reset cancelled.")
+				return nil
+			}
+			// Delete config file
+			if err := os.Remove(configPath); err != nil {
+				return fmt.Errorf("failed to remove config: %w", err)
+			}
+			fmt.Println("✓ Configuration deleted")
+			fmt.Println()
+			configExists = false // Treat as first-time setup
+		}
+	}
+
+	// Show welcome message
+	showWelcomeMessage(configExists && !resetFlag)
+
+	// Load existing config if available (for defaults)
+	existingCfg, err := config.Load()
+	if err != nil {
+		// If no config exists, create empty config for defaults
+		existingCfg = &config.Config{}
+	}
+
+	// Step 1: Get and validate GitLab URL
+	var gitlabURL string
+	for {
+		urlInput, err := promptForURL(reader, existingCfg.GitLab.URL)
+		if err != nil {
+			return err
+		}
+
+		normalizedURL, err := parseGitLabURL(urlInput)
+		if err != nil {
+			fmt.Printf("   ❌ Invalid URL: %v\n", err)
+			fmt.Println("   Please try again.")
+			fmt.Println()
+			continue
+		}
+
+		gitlabURL = normalizedURL
+		break
+	}
+
+	// Step 2: Show smart token helper
+	if err := showTokenHelper(gitlabURL, reader); err != nil {
+		return err
+	}
+
+	// Step 3: Get and validate token
+	var token string
+	for {
+		tokenInput, err := promptForToken(reader, existingCfg.GitLab.Token)
+		if err != nil {
+			return err
+		}
+
+		if err := validateToken(tokenInput); err != nil {
+			fmt.Printf("   ⚠️  %v\n", err)
+			fmt.Print("   Use this token anyway? [y/N]: ")
+			response, readErr := reader.ReadString('\n')
+			if readErr != nil {
+				return err
+			}
+			response = strings.ToLower(strings.TrimSpace(response))
+			if response == "y" || response == responseYes {
+				token = tokenInput
+				break
+			}
+			fmt.Println()
+			continue
+		}
+
+		token = tokenInput
+		break
+	}
+
+	// Step 4: Get timeout
+	timeout := promptForTimeout(reader, existingCfg.GitLab.Timeout)
+
+	// Step 5: Create config and test connection
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{
+			URL:     gitlabURL,
+			Token:   token,
+			Timeout: timeout,
+		},
+		Cache:         existingCfg.Cache,
+		ExcludedPaths: existingCfg.ExcludedPaths,
+	}
+
+	if err := testConnectionWithRetry(cfg, reader); err != nil {
+		return err
+	}
+
+	// Step 6: Save configuration
+	configDir := filepath.Join(os.Getenv("HOME"), ".config", "glf")
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	fmt.Printf("✓ Configuration saved to %s\n", configPath)
+
+	// Step 7: Ask if user wants to sync and launch
+	fmt.Println()
+	fmt.Println("🎉 Configuration Complete!")
+	fmt.Println()
+	fmt.Print("Would you like to sync projects and start searching now? [Y/n]: ")
+
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		// If we can't read, just show next steps
+		showNextSteps()
+		return nil
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	if response == "n" || response == "no" {
+		// User declined - show next steps and exit
+		showNextSteps()
+		return nil
+	}
+
+	// User accepted (default) - sync and launch
+	fmt.Println()
+	fmt.Println("🔄 Syncing projects from GitLab...")
+	fmt.Println()
+
+	// Perform sync
+	if err := performSyncInternal(cfg, false, false); err != nil {
+		fmt.Printf("\n⚠️  Sync failed: %v\n", err)
+		fmt.Println("You can run 'glf --sync' manually later.")
+		fmt.Println()
+		return nil
+	}
+
+	// Launch interactive TUI
+	fmt.Println()
+	fmt.Println("🚀 Launching GLF...")
+	fmt.Println()
+
+	// Load projects from index
+	indexPath := filepath.Join(cfg.Cache.Dir, "description.bleve")
+	descIndex, err := index.NewDescriptionIndex(indexPath)
+	if err != nil {
+		fmt.Printf("⚠️  Failed to open index: %v\n", err)
+		fmt.Println("Run 'glf' to start searching.")
+		return nil
+	}
+
+	// Use flag to control defer close behavior
+	shouldCloseIndex := true
+	defer func() {
+		if shouldCloseIndex {
+			if err := descIndex.Close(); err != nil {
+				// Silent close - we're in interactive mode
+			}
+		}
+	}()
+
+	allProjects, err := descIndex.GetAllProjects()
+	if err != nil {
+		fmt.Printf("⚠️  Failed to load projects: %v\n", err)
+		fmt.Println("Run 'glf' to start searching.")
+		return nil
+	}
+
+	if len(allProjects) == 0 {
+		fmt.Println("No projects found. Check your GitLab permissions.")
+		return nil
+	}
+
+	// Close index before launching TUI (TUI will reopen it)
+	shouldCloseIndex = false
+	if err := descIndex.Close(); err != nil {
+		// Silent close
+	}
+
+	// Launch interactive TUI
+	return runInteractive(allProjects, "", cfg)
+}
+
+// maskToken masks a token for display, showing only first and last 4 characters
+func maskToken(token string) string {
+	if len(token) <= 8 {
+		return "********"
+	}
+	return token[:4] + "****" + token[len(token)-4:]
+}
+
+// parseGitLabURL normalizes and validates a GitLab URL
+func parseGitLabURL(rawURL string) (string, error) {
+	// Trim spaces
+	rawURL = strings.TrimSpace(rawURL)
+
+	// Check if URL starts with http:// or https://
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		return "", fmt.Errorf("URL must start with http:// or https://")
+	}
+
+	// Parse URL to validate format
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL format: %w", err)
+	}
+
+	// Validate host is not empty
+	if parsed.Host == "" {
+		return "", fmt.Errorf("URL must include a host")
+	}
+
+	// Reconstruct normalized URL (removes trailing slashes, normalizes path)
+	normalized := fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+	if parsed.Path != "" && parsed.Path != "/" {
+		normalized += strings.TrimSuffix(parsed.Path, "/")
+	}
+
+	return normalized, nil
+}
+
+// generateTokenURL creates the token creation URL for a GitLab instance
+func generateTokenURL(gitlabURL string) string {
+	baseURL := strings.TrimSuffix(gitlabURL, "/")
+	return baseURL + "/-/user_settings/personal_access_tokens"
+}
+
+// validateToken performs basic token format validation
+func validateToken(token string) error {
+	token = strings.TrimSpace(token)
+
+	if len(token) == 0 {
+		return fmt.Errorf("token cannot be empty")
+	}
+
+	// GitLab tokens are typically 20+ characters
+	if len(token) < 20 {
+		return fmt.Errorf("token seems too short (expected at least 20 characters)")
+	}
+
+	// Basic format check - no spaces allowed
+	if strings.Contains(token, " ") {
+		return fmt.Errorf("token should not contain spaces")
+	}
+
+	return nil
+}
+
+// confirmReset prompts user to confirm configuration reset
+func confirmReset(reader *bufio.Reader) (bool, error) {
+	fmt.Println()
+	fmt.Println("⚠️  WARNING: This will delete your existing configuration.")
+	fmt.Println("   Your project cache and history will be preserved.")
+	fmt.Print("   Continue? [y/N]: ")
+
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "y" || response == responseYes, nil
+}
+
+// showWelcomeMessage displays contextual welcome message
+func showWelcomeMessage(isReconfiguration bool) {
+	if isReconfiguration {
+		fmt.Println("GLF Configuration Update")
+		fmt.Println("========================")
+		fmt.Println()
+		fmt.Println("Update your GitLab connection settings.")
+		fmt.Println("Press Enter to keep existing values shown in [brackets].")
+	} else {
+		fmt.Println("🚀 Welcome to GLF - GitLab Fuzzy Finder")
+		fmt.Println("========================================")
+		fmt.Println()
+		fmt.Println("Let's set up your GitLab connection.")
+		fmt.Println("This will only take a minute!")
+	}
+	fmt.Println()
+}
+
+// showNextSteps displays post-configuration guidance
+func showNextSteps() {
+	fmt.Println()
+	fmt.Println("✓ Configuration complete!")
+	fmt.Println()
+	fmt.Println("📚 Next Steps:")
+	fmt.Println("   1. Sync projects:    glf --sync")
+	fmt.Println("   2. Start searching:  glf")
+	fmt.Println()
+	fmt.Println("💡 Tips:")
+	fmt.Println("   • Use Ctrl+R in TUI to refresh projects")
+	fmt.Println("   • Use 'glf --help' to see all options")
+	fmt.Println("   • Multi-word search: glf api backend")
+	fmt.Println()
+}
+
+// showTokenHelper displays smart token creation guidance
+func showTokenHelper(gitlabURL string, reader *bufio.Reader) error {
+	tokenURL := generateTokenURL(gitlabURL)
+
+	fmt.Println()
+	fmt.Println("📋 Personal Access Token Setup")
+	fmt.Println("   ============================")
+	fmt.Println()
+	fmt.Println("   To create a token, visit:")
+	fmt.Println("   " + tokenURL)
+	fmt.Println()
+	fmt.Println("   Required scopes:")
+	fmt.Println("   • read_api       - Read GitLab API")
+	fmt.Println("   • read_repository - Read repository data")
+	fmt.Println()
+
+	// Ask if user wants to open browser
+	fmt.Print("   Open this URL in your browser now? [Y/n]: ")
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	if response == "" || response == "y" || response == responseYes {
+		fmt.Println("   Opening browser...")
+		if err := openBrowser(tokenURL); err != nil {
+			fmt.Printf("   ⚠️  Could not open browser: %v\n", err)
+			fmt.Println("   Please copy and paste the URL above manually.")
+		} else {
+			fmt.Println("   ✓ Browser opened")
+		}
+	}
+
+	fmt.Println()
+	return nil
+}
+
+// promptForURL prompts for GitLab URL with examples and validation
+func promptForURL(reader *bufio.Reader, existingURL string) (string, error) {
+	fmt.Println("🌐 GitLab Instance URL")
+	fmt.Println("   Example: https://gitlab.company.com")
+	if existingURL != "" {
+		fmt.Printf("   Current: %s\n", existingURL)
+		fmt.Print("   New URL [press Enter to keep]: ")
+	} else {
+		fmt.Print("   URL: ")
+	}
+
+	urlInput, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	urlInput = strings.TrimSpace(urlInput)
+
+	if urlInput == "" && existingURL != "" {
+		return existingURL, nil
+	}
+
+	return urlInput, nil
+}
+
+// promptForToken prompts for GitLab Personal Access Token
+func promptForToken(reader *bufio.Reader, existingToken string) (string, error) {
+	fmt.Println()
+	fmt.Println("🔑 Personal Access Token")
+	if existingToken != "" {
+		fmt.Printf("   Current: %s\n", maskToken(existingToken))
+		fmt.Print("   New token [press Enter to keep]: ")
+	} else {
+		fmt.Print("   Token: ")
+	}
+
+	token, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	token = strings.TrimSpace(token)
+
+	if token == "" && existingToken != "" {
+		return existingToken, nil
+	}
+
+	return token, nil
+}
+
+// promptForTimeout prompts for API timeout with sensible default
+func promptForTimeout(reader *bufio.Reader, existingTimeout int) int {
+	fmt.Println()
+	fmt.Println("⏱️  API Timeout")
+	defaultTimeout := 30
+	if existingTimeout > 0 {
+		defaultTimeout = existingTimeout
+	}
+	fmt.Printf("   Timeout in seconds [%d]: ", defaultTimeout)
+
+	timeoutStr, err := reader.ReadString('\n')
+	if err != nil {
+		// On error, return default timeout
+		return defaultTimeout
+	}
+	timeoutStr = strings.TrimSpace(timeoutStr)
+
+	if timeoutStr == "" {
+		return defaultTimeout
+	}
+
+	var timeout int
+	if _, err := fmt.Sscanf(timeoutStr, "%d", &timeout); err != nil || timeout <= 0 {
+		fmt.Printf("   ⚠️  Invalid timeout, using default: %d seconds\n", defaultTimeout)
+		return defaultTimeout
+	}
+
+	return timeout
+}
+
+// testConnectionWithRetry tests GitLab connection with user retry options
+func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
+	fmt.Println()
+	fmt.Println("🔄 Testing Connection")
+	fmt.Printf("   Connecting to %s...\n", cfg.GitLab.URL)
+
+	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout())
+	if err != nil {
+		return fmt.Errorf("failed to create GitLab client: %w", err)
+	}
+
+	for {
+		err := client.TestConnection()
+		if err == nil {
+			fmt.Println("   ✓ Connection successful!")
+			return nil
+		}
+
+		// Connection failed - show error and options
+		fmt.Printf("   ❌ Connection failed: %v\n", err)
+		fmt.Println()
+		fmt.Println("   Possible issues:")
+		fmt.Println("   • Check if GitLab URL is correct")
+		fmt.Println("   • Verify token has 'read_api' and 'read_repository' scopes")
+		fmt.Println("   • Ensure GitLab server is accessible")
+		fmt.Println("   • Check network connection")
+		fmt.Println()
+		fmt.Print("   What would you like to do? (R)etry / (E)dit settings / (C)ancel: ")
+
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		response = strings.ToLower(strings.TrimSpace(response))
+		switch response {
+		case "r", "retry":
+			fmt.Println("   Retrying...")
+			continue
+		case "e", "edit":
+			return fmt.Errorf("connection test failed, please run 'glf --init' again to edit settings")
+		case "c", "cancel":
+			return fmt.Errorf("configuration cancelled")
+		default:
+			fmt.Println("   Invalid option, please choose R, E, or C")
+			continue
+		}
+	}
+}
+
 func init() {
 	// Set version info
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildTime)
+
+	// Disable auto-generated commands
+	rootCmd.CompletionOptions.DisableDefaultCmd = true // Disable 'completion' command
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true}) // Disable 'help' command (help flag still works)
 
 	// Add flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
@@ -853,6 +1361,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&autoGo, "open", "g", false, "alias for --go/-o (for compatibility)")
 	rootCmd.PersistentFlags().BoolVarP(&doSync, "sync", "s", false, "synchronize projects cache")
 	rootCmd.PersistentFlags().BoolVar(&forceFull, "full", false, "force full sync (use with --sync)")
+	rootCmd.PersistentFlags().BoolVar(&doInit, "init", false, "run interactive configuration wizard")
+	rootCmd.PersistentFlags().BoolVar(&resetFlag, "reset", false, "reset configuration and start from scratch (use with --init)")
 
 	// Set up verbose mode before command execution
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {

@@ -1870,3 +1870,204 @@ cache:
 		t.Errorf("Expected 'GitLab client error' from sync, got: %v", err)
 	}
 }
+
+func TestParseGitLabURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		want        string
+		expectError bool
+	}{
+		{
+			name:        "valid HTTPS URL",
+			input:       "https://gitlab.com",
+			want:        "https://gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "valid HTTPS URL with trailing slash",
+			input:       "https://gitlab.com/",
+			want:        "https://gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "valid HTTPS URL with port",
+			input:       "https://gitlab.company.com:8443",
+			want:        "https://gitlab.company.com:8443",
+			expectError: false,
+		},
+		{
+			name:        "valid HTTPS URL with subpath",
+			input:       "https://company.com/gitlab",
+			want:        "https://company.com/gitlab",
+			expectError: false,
+		},
+		{
+			name:        "valid HTTPS URL with subpath and trailing slash",
+			input:       "https://company.com/gitlab/",
+			want:        "https://company.com/gitlab",
+			expectError: false,
+		},
+		{
+			name:        "valid HTTP URL",
+			input:       "http://localhost:8080",
+			want:        "http://localhost:8080",
+			expectError: false,
+		},
+		{
+			name:        "URL with extra spaces",
+			input:       "  https://gitlab.com  ",
+			want:        "https://gitlab.com",
+			expectError: false,
+		},
+		{
+			name:        "URL without protocol",
+			input:       "gitlab.com",
+			want:        "",
+			expectError: true,
+		},
+		{
+			name:        "empty URL",
+			input:       "",
+			want:        "",
+			expectError: true,
+		},
+		{
+			name:        "URL with only protocol",
+			input:       "https://",
+			want:        "",
+			expectError: true,
+		},
+		{
+			name:        "invalid URL format",
+			input:       "ht!tp://invalid",
+			want:        "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseGitLabURL(tt.input)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("parseGitLabURL() expected error but got none, input: %s", tt.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("parseGitLabURL() unexpected error: %v, input: %s", err, tt.input)
+				}
+				if got != tt.want {
+					t.Errorf("parseGitLabURL() = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateTokenURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		gitlabURL string
+		want      string
+	}{
+		{
+			name:      "gitlab.com",
+			gitlabURL: "https://gitlab.com",
+			want:      "https://gitlab.com/-/user_settings/personal_access_tokens",
+		},
+		{
+			name:      "self-hosted GitLab",
+			gitlabURL: "https://gitlab.company.com",
+			want:      "https://gitlab.company.com/-/user_settings/personal_access_tokens",
+		},
+		{
+			name:      "GitLab with port",
+			gitlabURL: "https://gitlab.company.com:8443",
+			want:      "https://gitlab.company.com:8443/-/user_settings/personal_access_tokens",
+		},
+		{
+			name:      "GitLab with subpath",
+			gitlabURL: "https://company.com/gitlab",
+			want:      "https://company.com/gitlab/-/user_settings/personal_access_tokens",
+		},
+		{
+			name:      "URL with trailing slash",
+			gitlabURL: "https://gitlab.com/",
+			want:      "https://gitlab.com/-/user_settings/personal_access_tokens",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateTokenURL(tt.gitlabURL)
+			if got != tt.want {
+				t.Errorf("generateTokenURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateToken(t *testing.T) {
+	tests := []struct {
+		name        string
+		token       string
+		expectError bool
+	}{
+		{
+			name:        "valid token",
+			token:       "glpat-1234567890123456",
+			expectError: false,
+		},
+		{
+			name:        "valid long token",
+			token:       "glpat-12345678901234567890",
+			expectError: false,
+		},
+		{
+			name:        "valid token with spaces around",
+			token:       "  glpat-1234567890123456  ",
+			expectError: false,
+		},
+		{
+			name:        "empty token",
+			token:       "",
+			expectError: true,
+		},
+		{
+			name:        "token too short",
+			token:       "glpat-12345",
+			expectError: true,
+		},
+		{
+			name:        "token with spaces inside",
+			token:       "glpat-12345 67890123456",
+			expectError: true,
+		},
+		{
+			name:        "token exactly 20 chars",
+			token:       "12345678901234567890",
+			expectError: false,
+		},
+		{
+			name:        "token 19 chars",
+			token:       "1234567890123456789",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateToken(tt.token)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("validateToken() expected error but got none, token: %s", tt.token)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("validateToken() unexpected error: %v, token: %s", err, tt.token)
+				}
+			}
+		})
+	}
+}
