@@ -1103,10 +1103,18 @@ func parseGitLabURL(rawURL string) (string, error) {
 	return normalized, nil
 }
 
-// generateTokenURL creates the token creation URL for a GitLab instance
+// generateTokenURL creates the token creation URL for a GitLab instance with pre-filled parameters
 func generateTokenURL(gitlabURL string) string {
 	baseURL := strings.TrimSuffix(gitlabURL, "/")
-	return baseURL + "/-/user_settings/personal_access_tokens"
+
+	// Build URL with query parameters to pre-fill token name and scopes
+	params := url.Values{}
+	params.Set("name", "glf-cli-token")
+	params.Add("scopes[]", "read_api")
+	params.Add("scopes[]", "read_repository")
+
+	tokenURL := baseURL + "/-/user_settings/personal_access_tokens?" + params.Encode()
+	return tokenURL
 }
 
 // validateToken performs basic token format validation
@@ -1188,33 +1196,15 @@ func showTokenHelper(gitlabURL string, reader *bufio.Reader) error {
 	fmt.Println("📋 Personal Access Token Setup")
 	fmt.Println("   ============================")
 	fmt.Println()
-	fmt.Println("   To create a token, visit:")
+	fmt.Println("   To create a token, open this URL in your browser:")
+	fmt.Println()
 	fmt.Println("   " + tokenURL)
 	fmt.Println()
-	fmt.Println("   Required scopes:")
-	fmt.Println("   • read_api       - Read GitLab API")
-	fmt.Println("   • read_repository - Read repository data")
+	fmt.Println("   The form will be pre-filled with:")
+	fmt.Println("   • Token name: glf-cli-token")
+	fmt.Println("   • Scopes: read_api, read_repository")
 	fmt.Println()
 
-	// Ask if user wants to open browser
-	fmt.Print("   Open this URL in your browser now? [Y/n]: ")
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return err
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "" || response == "y" || response == responseYes {
-		fmt.Println("   Opening browser...")
-		if err := openBrowser(tokenURL); err != nil {
-			fmt.Printf("   ⚠️  Could not open browser: %v\n", err)
-			fmt.Println("   Please copy and paste the URL above manually.")
-		} else {
-			fmt.Println("   ✓ Browser opened")
-		}
-	}
-
-	fmt.Println()
 	return nil
 }
 
