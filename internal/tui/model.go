@@ -483,7 +483,7 @@ func (m Model) View() string {
 		usedLines += 3 // Help text + spacing (bottom)
 	}
 
-	maxAvailableLines := m.height - usedLines - 7 // -7 for safety margin (ensure header stays visible)
+	maxAvailableLines := m.height - usedLines // No safety margin - maximize list space
 	if maxAvailableLines < 1 {
 		maxAvailableLines = 1
 	}
