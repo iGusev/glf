@@ -270,6 +270,38 @@ make fmt
 make lint
 ```
 
+### Releasing
+
+GLF uses automated CI/CD for releases via GitHub Actions and [GoReleaser](https://goreleaser.com/).
+
+#### Automatic Release Process
+
+When a new version tag is pushed, the release workflow automatically:
+
+1. ✅ Builds binaries for all supported platforms (macOS, Linux, Windows, FreeBSD, OpenBSD)
+2. ✅ Creates GitHub Release with artifacts and changelog
+3. ✅ Updates [Homebrew tap](https://github.com/igusev/homebrew-tap) for macOS/Linux users
+4. ✅ Updates [Scoop bucket](https://github.com/igusev/scoop-bucket) for Windows users
+
+#### Creating a New Release
+
+```bash
+# Create and push a version tag
+git tag v0.3.0
+git push origin v0.3.0
+
+# GitHub Actions will automatically:
+# - Run GoReleaser
+# - Build cross-platform binaries
+# - Create GitHub release
+# - Update package managers (Homebrew, Scoop)
+```
+
+#### Manual Release (optional)
+
+You can also trigger releases manually from GitHub Actions UI:
+- Go to **Actions** → **Release** → **Run workflow**
+
 ### Project Structure
 
 ```
