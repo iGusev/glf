@@ -33,3 +33,68 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  update-macports:
+    name: Update MacPorts Portfile
+    runs-on: macos-latest
+    needs: goreleaser
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Checkout MacPorts repository
+        uses: actions/checkout@v5
+        with:
+          repository: igusev/macports-ports
+          token: ${{ secrets.MACPORTS_GITHUB_TOKEN }}
+          path: macports-ports
+
+      - name: Download and calculate checksums
+        id: checksums
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="glf-${VERSION}.tar.gz"
+          URL="https://github.com/igusev/glf/archive/refs/tags/v${VERSION}.tar.gz"
+
+          # Download tarball
+          curl -L -o "$TARBALL" "$URL"
+
+          # Calculate checksums
+          RMD160=$(openssl dgst -rmd160 "$TARBALL" | awk '{print $2}')
+          SHA256=$(openssl dgst -sha256 "$TARBALL" | awk '{print $2}')
+          SIZE=$(ls -l "$TARBALL" | awk '{print $5}')
+
+          echo "rmd160=$RMD160" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+
+      - name: Update Portfile
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          RMD160="${{ steps.checksums.outputs.rmd160 }}"
+          SHA256="${{ steps.checksums.outputs.sha256 }}"
+          SIZE="${{ steps.checksums.outputs.size }}"
+          PORTFILE="macports-ports/devel/glf/Portfile"
+
+          # Update version
+          sed -i '' "s/go.setup[[:space:]]*github.com\/igusev\/glf[[:space:]]*[0-9.]*[[:space:]]*v/go.setup            github.com\/igusev\/glf ${VERSION} v/" "$PORTFILE"
+
+          # Update checksums (multi-line replacement)
+          sed -i '' "/^checksums/,/^$/c\\
+checksums           rmd160  $RMD160 \\\\\\
+                    sha256  $SHA256 \\\\\\
+                    size    $SIZE\\
+" "$PORTFILE"
+
+      - name: Commit and push changes
+        working-directory: macports-ports
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add devel/glf/Portfile
+          git commit -m "Update glf to version ${VERSION}"
+          git push
