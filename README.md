@@ -397,32 +397,6 @@ glf --init --reset
 cat ~/.config/glf/config.yaml
 ```
 
-## ⚡ Performance
-
-GLF uses intelligent parallel pagination to dramatically improve sync performance:
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **648 projects** | ~26 seconds | ~3-5 seconds | **5-8x faster** |
-| **2000 projects** | ~74 seconds | ~7-8 seconds | **10x faster** |
-
-**How it works:**
-- First request discovers total page count
-- Launches up to 10 concurrent requests for remaining pages
-- Uses goroutines with semaphore-based rate limiting
-- Results are collected via channels and reassembled in order
-
-**Verbose mode** shows real-time progress:
-```bash
-$ glf sync --verbose
-[DEBUG] Total pages: 7, Total projects: 648
-[DEBUG] Starting parallel fetch: 7 pages with max 10 concurrent requests
-[DEBUG] Fetched page 2/7 (28%)
-[DEBUG] Fetched page 7/7 (100%)
-[DEBUG] Parallel fetch completed in 3.2s: fetched 648 projects from 7 pages
-✓ Successfully fetched 648 projects
-```
-
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
