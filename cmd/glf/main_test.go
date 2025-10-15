@@ -1974,27 +1974,27 @@ func TestGenerateTokenURL(t *testing.T) {
 		{
 			name:      "gitlab.com",
 			gitlabURL: "https://gitlab.com",
-			want:      "https://gitlab.com/-/user_settings/personal_access_tokens",
+			want:      "https://gitlab.com/-/profile/personal_access_tokens?name=glf-cli-token&scopes=read_api%2Cread_repository",
 		},
 		{
 			name:      "self-hosted GitLab",
 			gitlabURL: "https://gitlab.company.com",
-			want:      "https://gitlab.company.com/-/user_settings/personal_access_tokens",
+			want:      "https://gitlab.company.com/-/profile/personal_access_tokens?name=glf-cli-token&scopes=read_api%2Cread_repository",
 		},
 		{
 			name:      "GitLab with port",
 			gitlabURL: "https://gitlab.company.com:8443",
-			want:      "https://gitlab.company.com:8443/-/user_settings/personal_access_tokens",
+			want:      "https://gitlab.company.com:8443/-/profile/personal_access_tokens?name=glf-cli-token&scopes=read_api%2Cread_repository",
 		},
 		{
 			name:      "GitLab with subpath",
 			gitlabURL: "https://company.com/gitlab",
-			want:      "https://company.com/gitlab/-/user_settings/personal_access_tokens",
+			want:      "https://company.com/gitlab/-/profile/personal_access_tokens?name=glf-cli-token&scopes=read_api%2Cread_repository",
 		},
 		{
 			name:      "URL with trailing slash",
 			gitlabURL: "https://gitlab.com/",
-			want:      "https://gitlab.com/-/user_settings/personal_access_tokens",
+			want:      "https://gitlab.com/-/profile/personal_access_tokens?name=glf-cli-token&scopes=read_api%2Cread_repository",
 		},
 	}
 
