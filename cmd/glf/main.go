@@ -919,9 +919,7 @@ func runConfigWizard() error {
 	}
 
 	// Step 2: Show smart token helper
-	if err := showTokenHelper(gitlabURL); err != nil {
-		return err
-	}
+	showTokenHelper(gitlabURL)
 
 	// Step 3: Get and validate token
 	var token string
@@ -1146,7 +1144,7 @@ func showWelcomeMessage(isReconfiguration bool) {
 }
 
 // showTokenHelper displays smart token creation guidance with better formatting
-func showTokenHelper(gitlabURL string) error {
+func showTokenHelper(gitlabURL string) {
 	tokenURL := generateTokenURL(gitlabURL)
 
 	fmt.Println()
@@ -1160,8 +1158,6 @@ func showTokenHelper(gitlabURL string) error {
 	printBullet("Token name: glf-cli-token")
 	printBullet("Scopes: read_api, read_repository")
 	fmt.Println()
-
-	return nil
 }
 
 // promptForURL prompts for GitLab URL with better formatting
