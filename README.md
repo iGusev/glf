@@ -27,6 +27,21 @@
 
 ### Installation
 
+#### Homebrew (macOS/Linux)
+
+The easiest way to install GLF on macOS or Linux:
+
+```bash
+# Add the tap
+brew tap igusev/tap
+
+# Install GLF
+brew install glf
+
+# Update to latest version
+brew upgrade glf
+```
+
 #### From Source
 
 ```bash
@@ -138,6 +153,10 @@ glf --help            Show help
 ### Flags
 
 ```
+-o, --go              Auto-select first result and open in browser
+-g, --open            Alias for --go (for compatibility)
+-s, --sync            Synchronize projects cache
+--full                Force full sync (use with --sync)
 -v, --verbose         Enable verbose logging
 --scores              Show score breakdown for debugging ranking
 ```
@@ -154,6 +173,17 @@ glf microservice
 # Multi-token search (matches projects with all terms)
 glf api storage        # Finds projects containing both "api" AND "storage"
 glf user auth service  # Finds projects with all three terms
+
+# Auto-select first result and open in browser
+glf ingress -o         # Opens first "ingress" match
+glf api -g             # Same as -o (alias for compatibility)
+
+# Open current Git repository in browser
+glf .
+
+# Sync projects from GitLab
+glf --sync             # Incremental sync
+glf --sync --full      # Full sync (removes deleted projects)
 
 # Verbose mode for debugging
 glf sync --verbose
