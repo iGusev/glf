@@ -77,7 +77,7 @@ brews:
       owner: igusev
       name: homebrew-tap
       branch: main
-    folder: Formula
+    directory: Formula
     homepage: "https://github.com/igusev/glf"
     description: "Fast CLI tool for instant fuzzy search across self-hosted GitLab projects"
     license: "MIT"
