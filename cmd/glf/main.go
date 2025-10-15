@@ -951,15 +951,12 @@ func runConfigWizard() error {
 		break
 	}
 
-	// Step 4: Get timeout
-	timeout := promptForTimeout(reader, existingCfg.GitLab.Timeout)
-
-	// Step 5: Create config and test connection
+	// Step 4: Create config and test connection (use default timeout)
 	cfg := &config.Config{
 		GitLab: config.GitLabConfig{
 			URL:     gitlabURL,
 			Token:   token,
-			Timeout: timeout,
+			Timeout: 30, // Default timeout
 		},
 		Cache:         existingCfg.Cache,
 		ExcludedPaths: existingCfg.ExcludedPaths,
