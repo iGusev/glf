@@ -1190,8 +1190,6 @@ func showTokenHelper(gitlabURL string, reader *bufio.Reader) error {
 // promptForURL prompts for GitLab URL with better formatting
 func promptForURL(reader *bufio.Reader, existingURL string) (string, error) {
 	printSection("🌐", "GitLab Instance URL")
-	fmt.Println()
-	printExample("  Example: https://gitlab.company.com")
 
 	if existingURL != "" {
 		fmt.Println()
@@ -1199,6 +1197,8 @@ func promptForURL(reader *bufio.Reader, existingURL string) (string, error) {
 		fmt.Println()
 		printPrompt("  New URL [Enter to keep]: ")
 	} else {
+		fmt.Println()
+		printExample("  Example: https://gitlab.company.com")
 		fmt.Println()
 		printPrompt("  URL: ")
 	}

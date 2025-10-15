@@ -62,7 +62,7 @@ var (
 
 	// Input prompt style
 	promptStyle = lipgloss.NewStyle().
-			Foreground(gitlabOrange)
+			Foreground(lipgloss.Color("#E6704E"))
 
 	// Example text style
 	exampleStyle = lipgloss.NewStyle().
