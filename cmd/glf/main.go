@@ -986,33 +986,15 @@ func runConfigWizard() error {
 
 	fmt.Printf("✓ Configuration saved to %s\n", configPath)
 
-	// Step 7: Ask if user wants to sync and launch
+	// Step 7: Automatically perform full sync and launch
 	fmt.Println()
 	fmt.Println("🎉 Configuration Complete!")
 	fmt.Println()
-	fmt.Print("Would you like to sync projects and start searching now? [Y/n]: ")
-
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		// If we can't read, just show next steps
-		showNextSteps()
-		return nil
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "n" || response == "no" {
-		// User declined - show next steps and exit
-		showNextSteps()
-		return nil
-	}
-
-	// User accepted (default) - sync and launch
-	fmt.Println()
-	fmt.Println("🔄 Syncing projects from GitLab...")
+	fmt.Println("🔄 Syncing all projects from GitLab...")
 	fmt.Println()
 
-	// Perform sync
-	if err := performSyncInternal(cfg, false, false); err != nil {
+	// Perform full sync (force=true to get all projects)
+	if err := performSyncInternal(cfg, false, true); err != nil {
 		fmt.Printf("\n⚠️  Sync failed: %v\n", err)
 		fmt.Println("You can run 'glf --sync' manually later.")
 		fmt.Println()
