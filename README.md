@@ -298,7 +298,8 @@ When a new version tag is pushed, the release workflow automatically:
 1. ✅ Builds binaries for all supported platforms (macOS, Linux, Windows, FreeBSD, OpenBSD)
 2. ✅ Creates GitHub Release with artifacts and changelog
 3. ✅ Updates [Homebrew tap](https://github.com/igusev/homebrew-tap) for macOS/Linux users
-4. ✅ Updates [Scoop bucket](https://github.com/igusev/scoop-bucket) for Windows users
+4. ✅ Updates [MacPorts Portfile](https://github.com/igusev/macports-ports) for macOS users
+5. ✅ Updates [Scoop bucket](https://github.com/igusev/scoop-bucket) for Windows users
 
 #### Creating a New Release
 
@@ -311,7 +312,7 @@ git push origin v0.3.0
 # - Run GoReleaser
 # - Build cross-platform binaries
 # - Create GitHub release
-# - Update package managers (Homebrew, Scoop)
+# - Update package managers (Homebrew, MacPorts, Scoop)
 ```
 
 #### Manual Release (optional)
