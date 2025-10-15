@@ -264,7 +264,9 @@ func openBrowser(url string) error {
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	return cmd.Start()
+	// Use Run() instead of Start() to wait for the command to complete
+	// This ensures the browser actually opens before we return
+	return cmd.Run()
 }
 
 // getGitRemoteURL gets the Git remote origin URL for the given directory
@@ -847,7 +849,8 @@ func init() {
 	// Add flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().BoolVar(&showScores, "scores", false, "show score breakdown (search + history)")
-	rootCmd.PersistentFlags().BoolVarP(&autoGo, "go", "g", false, "auto-select first result and open in browser")
+	rootCmd.PersistentFlags().BoolVarP(&autoGo, "go", "o", false, "auto-select first result and open in browser")
+	rootCmd.PersistentFlags().BoolVarP(&autoGo, "open", "g", false, "alias for --go/-o (for compatibility)")
 	rootCmd.PersistentFlags().BoolVarP(&doSync, "sync", "s", false, "synchronize projects cache")
 	rootCmd.PersistentFlags().BoolVar(&forceFull, "full", false, "force full sync (use with --sync)")
 
