@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -47,14 +48,41 @@ const (
 	platformWindows = "windows"
 )
 
+// JSON output structures for API integrations
+type (
+	// JSONSearchResult represents the complete search response in JSON mode
+	JSONSearchResult struct {
+		Query   string        `json:"query"`            // Search query that was executed
+		Results []JSONProject `json:"results"`          // Matching projects
+		Total   int           `json:"total"`            // Total number of results
+		Limit   int           `json:"limit"`            // Maximum results returned
+	}
+
+	// JSONProject represents a single project in JSON output
+	JSONProject struct {
+		Path        string  `json:"path"`                  // Project path (e.g., "group/project")
+		Name        string  `json:"name"`                  // Project name
+		Description string  `json:"description"`           // Project description
+		URL         string  `json:"url"`                   // Full project URL
+		Score       float64 `json:"score,omitempty"`       // Relevance score (optional, with --scores)
+	}
+
+	// JSONError represents an error response in JSON mode
+	JSONError struct {
+		Error string `json:"error"` // Error message
+	}
+)
+
 var (
-	verbose    bool // Flag to enable verbose logging
-	showScores bool // Flag to show score breakdown (search + history)
-	autoGo     bool // Flag to automatically select first result and open in browser
-	doSync     bool // Flag to perform sync instead of search
-	forceFull  bool // Flag to force full sync (ignore incremental)
-	doInit     bool // Flag to run interactive configuration wizard
-	resetFlag  bool // Flag to reset configuration and start from scratch
+	verbose      bool // Flag to enable verbose logging
+	showScores   bool // Flag to show score breakdown (search + history)
+	autoGo       bool // Flag to automatically select first result and open in browser
+	doSync       bool // Flag to perform sync instead of search
+	forceFull    bool // Flag to force full sync (ignore incremental)
+	doInit       bool // Flag to run interactive configuration wizard
+	resetFlag    bool // Flag to reset configuration and start from scratch
+	jsonOutput   bool // Flag to enable JSON output mode for API integrations
+	limitResults int  // Flag to limit number of results in JSON mode
 )
 
 var rootCmd = &cobra.Command{
@@ -145,6 +173,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	// Join all args to support multi-word queries: "glf api ingress"
 	query := strings.TrimSpace(strings.Join(args, " "))
 
+	// JSON output mode: return results in JSON format (for integrations like Raycast)
+	if jsonOutput {
+		return runJSONMode(allProjects, query, cfg, descIndex)
+	}
+
 	// Auto-go mode: select first result and open in browser
 	if autoGo {
 		if query == "" {
@@ -161,6 +194,103 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	}
 	// Launch interactive TUI with optional initial query
 	return runInteractive(allProjects, query, cfg)
+}
+
+// runJSONMode outputs search results in JSON format for API integrations
+func runJSONMode(projects []types.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
+	if len(projects) == 0 {
+		return outputJSONError("no projects in cache")
+	}
+
+	var matches []index.CombinedMatch
+	var err error
+
+	// If query is provided, perform search
+	if query != "" {
+		// Load history for score boosting
+		historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
+		hist := history.New(historyPath)
+
+		// Load history synchronously
+		errCh := hist.LoadAsync()
+		if err := <-errCh; err != nil {
+			logger.Debug("Failed to load history: %v", err)
+		}
+
+		// Get query-specific history scores
+		historyScores := hist.GetAllScoresForQuery(query)
+
+		// Perform search
+		matches, err = search.CombinedSearchWithIndex(query, projects, historyScores, cfg.Cache.Dir, descIndex)
+		if err != nil {
+			return outputJSONError(fmt.Sprintf("search failed: %v", err))
+		}
+	} else {
+		// No query - return all projects
+		matches = make([]index.CombinedMatch, len(projects))
+		for i, proj := range projects {
+			matches[i] = index.CombinedMatch{
+				Project:    proj,
+				TotalScore: 0,
+			}
+		}
+	}
+
+	// Apply limit
+	if limitResults > 0 && len(matches) > limitResults {
+		matches = matches[:limitResults]
+	}
+
+	// Convert to JSON format
+	gitlabURL := strings.TrimSuffix(cfg.GitLab.URL, "/")
+	jsonProjects := make([]JSONProject, len(matches))
+	for i, match := range matches {
+		projectPath := strings.TrimPrefix(match.Project.Path, "/")
+		projectURL := fmt.Sprintf("%s/%s", gitlabURL, projectPath)
+
+		jsonProjects[i] = JSONProject{
+			Path:        match.Project.Path,
+			Name:        match.Project.Name,
+			Description: match.Project.Description,
+			URL:         projectURL,
+		}
+
+		// Include score if --scores flag is set
+		if showScores {
+			jsonProjects[i].Score = match.TotalScore
+		}
+	}
+
+	// Create result
+	result := JSONSearchResult{
+		Query:   query,
+		Results: jsonProjects,
+		Total:   len(matches),
+		Limit:   limitResults,
+	}
+
+	return outputJSON(result)
+}
+
+// outputJSON outputs a value as JSON to stdout
+func outputJSON(v interface{}) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(v); err != nil {
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+	return nil
+}
+
+// outputJSONError outputs an error in JSON format and returns nil
+// (so the program can exit cleanly with JSON output)
+func outputJSONError(message string) error {
+	if err := outputJSON(JSONError{Error: message}); err != nil {
+		// If JSON encoding fails, fall back to stderr
+		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
+	}
+	os.Exit(1)
+	return nil
 }
 
 // runAutoGo automatically selects first result and opens it in browser
@@ -1289,6 +1419,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&forceFull, "full", false, "force full sync (use with --sync)")
 	rootCmd.PersistentFlags().BoolVar(&doInit, "init", false, "run interactive configuration wizard")
 	rootCmd.PersistentFlags().BoolVar(&resetFlag, "reset", false, "reset configuration and start from scratch (use with --init)")
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output results in JSON format (for integrations)")
+	rootCmd.PersistentFlags().IntVar(&limitResults, "limit", 20, "limit number of results (for JSON mode)")
 
 	// Set up verbose mode before command execution
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
