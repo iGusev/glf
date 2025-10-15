@@ -12,16 +12,10 @@
 ## ✨ Features
 
 - ⚡ **Lightning-fast fuzzy search** with local caching
-- 🎨 **Interactive TUI** with adaptive color scheme
 - 🔍 **Multi-token search** - Search with spaces: `"api storage"` finds projects with both terms
 - 🧠 **Smart ranking** - Frequently selected projects automatically appear first
-- 🔄 **Parallel pagination** - 5-8x faster sync with concurrent API requests
 - 🔁 **Auto-sync on startup** - Projects refresh in background while you search
-- 🔁 **Live sync** - Press `Ctrl+R` to manually refresh anytime (non-blocking)
-- 📍 **Clean activity indicator** - Single circle (○/●) shows sync and history loading status
-- ⚙️ **Easy configuration** via interactive wizard or YAML
 - 🌍 **Cross-platform** builds for macOS, Linux, and Windows
-- 📝 **Verbose logging** with progress indicators for troubleshooting
 
 ## 🚀 Quick Start
 
@@ -177,8 +171,8 @@ glf --help            Show help
 ```
 --init                Run interactive configuration wizard
 --reset               Reset configuration and start from scratch (use with --init)
--o, --go              Auto-select first result and open in browser
 -g, --open            Alias for --go (for compatibility)
+--go                  Auto-select first result and open in browser
 -s, --sync            Synchronize projects cache
 --full                Force full sync (use with --sync)
 -v, --verbose         Enable verbose logging
@@ -199,8 +193,8 @@ glf api storage        # Finds projects containing both "api" AND "storage"
 glf user auth service  # Finds projects with all three terms
 
 # Auto-select first result and open in browser
-glf ingress -o         # Opens first "ingress" match
-glf api -g             # Same as -o (alias for compatibility)
+glf ingress -g         # Opens first "ingress" match
+glf api --go           # Same as -g (alias for compatibility)
 
 # Open current Git repository in browser
 glf .

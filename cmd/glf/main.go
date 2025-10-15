@@ -1342,8 +1342,8 @@ func init() {
 	// Add flags
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().BoolVar(&showScores, "scores", false, "show score breakdown (search + history)")
-	rootCmd.PersistentFlags().BoolVarP(&autoGo, "go", "o", false, "auto-select first result and open in browser")
-	rootCmd.PersistentFlags().BoolVarP(&autoGo, "open", "g", false, "alias for --go/-o (for compatibility)")
+	rootCmd.PersistentFlags().BoolVar(&autoGo, "go", false, "auto-select first result and open in browser")
+	rootCmd.PersistentFlags().BoolVarP(&autoGo, "open", "g", false, "alias for --go (for compatibility)")
 	rootCmd.PersistentFlags().BoolVarP(&doSync, "sync", "s", false, "synchronize projects cache")
 	rootCmd.PersistentFlags().BoolVar(&forceFull, "full", false, "force full sync (use with --sync)")
 	rootCmd.PersistentFlags().BoolVar(&doInit, "init", false, "run interactive configuration wizard")
