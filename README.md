@@ -15,6 +15,7 @@
 - 🔍 **Multi-token search** - Search with spaces: `"api storage"` finds projects with both terms
 - 🧠 **Smart ranking** - Frequently selected projects automatically appear first
 - 🔁 **Auto-sync on startup** - Projects refresh in background while you search
+- 🔌 **JSON API mode** - Machine-readable output for Raycast, Alfred, and custom integrations
 - 🌍 **Cross-platform** builds for macOS, Linux, and Windows
 
 ## 🚀 Quick Start
@@ -200,6 +201,8 @@ glf --help            Show help
 --full                Force full sync (use with --sync)
 -v, --verbose         Enable verbose logging
 --scores              Show score breakdown for debugging ranking
+--json                Output results in JSON format (for API integrations)
+--limit N             Limit number of results in JSON mode (default: 20)
 ```
 
 ### Examples
@@ -237,6 +240,59 @@ glf --init
 
 # Reset and reconfigure
 glf --init --reset
+```
+
+### JSON Output Mode (API Integration)
+
+GLF supports JSON output for integration with tools like Raycast, Alfred, or custom scripts:
+
+```bash
+# Output search results as JSON
+glf --json api
+
+# Limit number of results
+glf --json --limit 5 backend
+
+# Include relevance scores
+glf --json --scores microservice
+
+# Get all projects (no query)
+glf --json --limit 100
+```
+
+**JSON Output Format:**
+
+```json
+{
+  "query": "api",
+  "results": [
+    {
+      "path": "backend/api-server",
+      "name": "API Server",
+      "description": "REST API for authentication",
+      "url": "https://gitlab.example.com/backend/api-server",
+      "score": 123.45
+    }
+  ],
+  "total": 5,
+  "limit": 20
+}
+```
+
+**Use Cases:**
+- **Raycast Extension**: Quick project navigation from Raycast
+- **Alfred Workflow**: GitLab project search in Alfred
+- **CI/CD Scripts**: Automated project discovery and URL generation
+- **Custom Tools**: Build your own integrations on top of GLF's search
+
+**Error Handling:**
+
+When errors occur, GLF outputs JSON error format and exits with code 1:
+
+```json
+{
+  "error": "no projects in cache"
+}
 ```
 
 ### Smart Ranking
