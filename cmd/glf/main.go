@@ -1172,11 +1172,11 @@ func showTokenHelper(gitlabURL string, reader *bufio.Reader) error {
 	fmt.Println()
 	printSection("📋", "Personal Access Token Setup")
 	fmt.Println()
-	printMuted("  To create a token, open this URL in your browser:")
+	printMuted("To create a token, open this URL in your browser:")
 	fmt.Println()
 	printURL(tokenURL)
 	fmt.Println()
-	printMuted("  The form will be pre-filled with:")
+	printMuted("The form will be pre-filled with:")
 	printBullet("Token name: glf-cli-token")
 	printBullet("Scopes: read_api, read_repository")
 	fmt.Println()
@@ -1190,14 +1190,14 @@ func promptForURL(reader *bufio.Reader, existingURL string) (string, error) {
 
 	if existingURL != "" {
 		fmt.Println()
-		printMuted(fmt.Sprintf("  Current: %s", existingURL))
+		printMuted(fmt.Sprintf("Current: %s", existingURL))
 		fmt.Println()
-		printPrompt("  New URL [Enter to keep]: ")
+		printPrompt("New URL [Enter to keep]: ")
 	} else {
 		fmt.Println()
-		printExample("  Example: https://gitlab.company.com")
+		printExample("Example: https://gitlab.company.com")
 		fmt.Println()
-		printPrompt("  URL: ")
+		printPrompt("URL: ")
 	}
 
 	urlInput, err := reader.ReadString('\n')
@@ -1220,12 +1220,12 @@ func promptForToken(reader *bufio.Reader, existingToken string) (string, error) 
 
 	if existingToken != "" {
 		fmt.Println()
-		printMuted(fmt.Sprintf("  Current: %s", maskToken(existingToken)))
+		printMuted(fmt.Sprintf("Current: %s", maskToken(existingToken)))
 		fmt.Println()
-		printPrompt("  New token [Enter to keep]: ")
+		printPrompt("New token [Enter to keep]: ")
 	} else {
 		fmt.Println()
-		printPrompt("  Token: ")
+		printPrompt("Token: ")
 	}
 
 	token, err := reader.ReadString('\n')
@@ -1281,7 +1281,7 @@ func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 	fmt.Println()
 	printSection("🔄", "Testing Connection")
 	fmt.Println()
-	printMuted(fmt.Sprintf("  Connecting to %s...", cfg.GitLab.URL))
+	printMuted(fmt.Sprintf("Connecting to %s...", cfg.GitLab.URL))
 
 	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout())
 	if err != nil {
@@ -1300,13 +1300,13 @@ func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 		fmt.Println()
 		printError(fmt.Sprintf("Connection failed: %v", err))
 		fmt.Println()
-		printMuted("  Possible issues:")
+		printMuted("Possible issues:")
 		printBullet("Check if GitLab URL is correct")
 		printBullet("Verify token has 'read_api' and 'read_repository' scopes")
 		printBullet("Ensure GitLab server is accessible")
 		printBullet("Check network connection")
 		fmt.Println()
-		printPrompt("  What would you like to do? (R)etry / (E)dit / (C)ancel: ")
+		printPrompt("What would you like to do? (R)etry / (E)dit / (C)ancel: ")
 
 		response, err := reader.ReadString('\n')
 		if err != nil {
@@ -1317,7 +1317,7 @@ func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 		switch response {
 		case "r", "retry":
 			fmt.Println()
-			printMuted("  Retrying...")
+			printMuted("Retrying...")
 			continue
 		case "e", "edit":
 			return fmt.Errorf("connection test failed, please run 'glf --init' again to edit settings")
