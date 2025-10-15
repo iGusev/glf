@@ -42,6 +42,21 @@ brew install glf
 brew upgrade glf
 ```
 
+#### Scoop (Windows)
+
+The easiest way to install GLF on Windows:
+
+```powershell
+# Add the bucket
+scoop bucket add igusev https://github.com/igusev/scoop-bucket
+
+# Install GLF
+scoop install igusev/glf
+
+# Update to latest version
+scoop update glf
+```
+
 #### From Source
 
 ```bash
