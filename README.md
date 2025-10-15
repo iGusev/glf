@@ -62,9 +62,11 @@ cd glf
 make install
 ```
 
-#### Pre-built Binaries
+#### Binary Releases
 
-Download the latest release for your platform from the [releases page](https://github.com/igusev/glf/releases).
+You can download the official GLF binaries from the [releases page](https://github.com/igusev/glf/releases).
+
+Available for: **macOS** (Intel & Apple Silicon), **Linux** (x64, ARM, ARM64, and more), **Windows** (x64), **FreeBSD**, **OpenBSD**.
 
 ### Configuration
 
