@@ -1136,20 +1136,18 @@ func confirmReset(reader *bufio.Reader) (bool, error) {
 	return response == "y" || response == responseYes, nil
 }
 
-// showWelcomeMessage displays contextual welcome message
+// showWelcomeMessage displays contextual welcome message with styled logo
 func showWelcomeMessage(isReconfiguration bool) {
 	if isReconfiguration {
-		fmt.Println("GLF Configuration Update")
-		fmt.Println("========================")
-		fmt.Println()
-		fmt.Println("Update your GitLab connection settings.")
-		fmt.Println("Press Enter to keep existing values shown in [brackets].")
+		printLogo(version)
+		printTitle("Configuration Update")
+		printMuted("Update your GitLab connection settings.")
+		printMuted("Press Enter to keep existing values.")
 	} else {
-		fmt.Println("🚀 Welcome to GLF - GitLab Fuzzy Finder")
-		fmt.Println("========================================")
-		fmt.Println()
-		fmt.Println("Let's set up your GitLab connection.")
-		fmt.Println("This will only take a minute!")
+		printLogo(version)
+		printTitle("Initial Setup")
+		printMuted("Let's connect to your GitLab instance.")
+		printMuted("This will only take a minute!")
 	}
 	fmt.Println()
 }
@@ -1170,35 +1168,39 @@ func showNextSteps() {
 	fmt.Println()
 }
 
-// showTokenHelper displays smart token creation guidance
+// showTokenHelper displays smart token creation guidance with better formatting
 func showTokenHelper(gitlabURL string, reader *bufio.Reader) error {
 	tokenURL := generateTokenURL(gitlabURL)
 
 	fmt.Println()
-	fmt.Println("📋 Personal Access Token Setup")
-	fmt.Println("   ============================")
+	printSection("📋", "Personal Access Token Setup")
 	fmt.Println()
-	fmt.Println("   To create a token, open this URL in your browser:")
+	printMuted("  To create a token, open this URL in your browser:")
 	fmt.Println()
-	fmt.Println("   " + tokenURL)
+	printURL(tokenURL)
 	fmt.Println()
-	fmt.Println("   The form will be pre-filled with:")
-	fmt.Println("   • Token name: glf-cli-token")
-	fmt.Println("   • Scopes: read_api, read_repository")
+	printMuted("  The form will be pre-filled with:")
+	printBullet("Token name: glf-cli-token")
+	printBullet("Scopes: read_api, read_repository")
 	fmt.Println()
 
 	return nil
 }
 
-// promptForURL prompts for GitLab URL with examples and validation
+// promptForURL prompts for GitLab URL with better formatting
 func promptForURL(reader *bufio.Reader, existingURL string) (string, error) {
-	fmt.Println("🌐 GitLab Instance URL")
-	fmt.Println("   Example: https://gitlab.company.com")
+	printSection("🌐", "GitLab Instance URL")
+	fmt.Println()
+	printExample("  Example: https://gitlab.company.com")
+
 	if existingURL != "" {
-		fmt.Printf("   Current: %s\n", existingURL)
-		fmt.Print("   New URL [press Enter to keep]: ")
+		fmt.Println()
+		printMuted(fmt.Sprintf("  Current: %s", existingURL))
+		fmt.Println()
+		printPrompt("  New URL [Enter to keep]: ")
 	} else {
-		fmt.Print("   URL: ")
+		fmt.Println()
+		printPrompt("  URL: ")
 	}
 
 	urlInput, err := reader.ReadString('\n')
@@ -1214,15 +1216,19 @@ func promptForURL(reader *bufio.Reader, existingURL string) (string, error) {
 	return urlInput, nil
 }
 
-// promptForToken prompts for GitLab Personal Access Token
+// promptForToken prompts for GitLab Personal Access Token with better formatting
 func promptForToken(reader *bufio.Reader, existingToken string) (string, error) {
 	fmt.Println()
-	fmt.Println("🔑 Personal Access Token")
+	printSection("🔑", "Personal Access Token")
+
 	if existingToken != "" {
-		fmt.Printf("   Current: %s\n", maskToken(existingToken))
-		fmt.Print("   New token [press Enter to keep]: ")
+		fmt.Println()
+		printMuted(fmt.Sprintf("  Current: %s", maskToken(existingToken)))
+		fmt.Println()
+		printPrompt("  New token [Enter to keep]: ")
 	} else {
-		fmt.Print("   Token: ")
+		fmt.Println()
+		printPrompt("  Token: ")
 	}
 
 	token, err := reader.ReadString('\n')
@@ -1238,19 +1244,23 @@ func promptForToken(reader *bufio.Reader, existingToken string) (string, error) 
 	return token, nil
 }
 
-// promptForTimeout prompts for API timeout with sensible default
+// promptForTimeout prompts for API timeout with better formatting
 func promptForTimeout(reader *bufio.Reader, existingTimeout int) int {
 	fmt.Println()
-	fmt.Println("⏱️  API Timeout")
+	printSection("⏱️ ", "API Timeout")
+
 	defaultTimeout := 30
 	if existingTimeout > 0 {
 		defaultTimeout = existingTimeout
 	}
-	fmt.Printf("   Timeout in seconds [%d]: ", defaultTimeout)
+
+	fmt.Println()
+	printMuted(fmt.Sprintf("  Default: %d seconds", defaultTimeout))
+	fmt.Println()
+	printPrompt(fmt.Sprintf("  Timeout [%d]: ", defaultTimeout))
 
 	timeoutStr, err := reader.ReadString('\n')
 	if err != nil {
-		// On error, return default timeout
 		return defaultTimeout
 	}
 	timeoutStr = strings.TrimSpace(timeoutStr)
@@ -1261,18 +1271,20 @@ func promptForTimeout(reader *bufio.Reader, existingTimeout int) int {
 
 	var timeout int
 	if _, err := fmt.Sscanf(timeoutStr, "%d", &timeout); err != nil || timeout <= 0 {
-		fmt.Printf("   ⚠️  Invalid timeout, using default: %d seconds\n", defaultTimeout)
+		fmt.Println()
+		printWarning(fmt.Sprintf("Invalid timeout, using default: %d seconds", defaultTimeout))
 		return defaultTimeout
 	}
 
 	return timeout
 }
 
-// testConnectionWithRetry tests GitLab connection with user retry options
+// testConnectionWithRetry tests GitLab connection with better formatting
 func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 	fmt.Println()
-	fmt.Println("🔄 Testing Connection")
-	fmt.Printf("   Connecting to %s...\n", cfg.GitLab.URL)
+	printSection("🔄", "Testing Connection")
+	fmt.Println()
+	printMuted(fmt.Sprintf("  Connecting to %s...", cfg.GitLab.URL))
 
 	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout())
 	if err != nil {
@@ -1282,20 +1294,22 @@ func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 	for {
 		err := client.TestConnection()
 		if err == nil {
-			fmt.Println("   ✓ Connection successful!")
+			fmt.Println()
+			printSuccess("Connection successful!")
 			return nil
 		}
 
 		// Connection failed - show error and options
-		fmt.Printf("   ❌ Connection failed: %v\n", err)
 		fmt.Println()
-		fmt.Println("   Possible issues:")
-		fmt.Println("   • Check if GitLab URL is correct")
-		fmt.Println("   • Verify token has 'read_api' and 'read_repository' scopes")
-		fmt.Println("   • Ensure GitLab server is accessible")
-		fmt.Println("   • Check network connection")
+		printError(fmt.Sprintf("Connection failed: %v", err))
 		fmt.Println()
-		fmt.Print("   What would you like to do? (R)etry / (E)dit settings / (C)ancel: ")
+		printMuted("  Possible issues:")
+		printBullet("Check if GitLab URL is correct")
+		printBullet("Verify token has 'read_api' and 'read_repository' scopes")
+		printBullet("Ensure GitLab server is accessible")
+		printBullet("Check network connection")
+		fmt.Println()
+		printPrompt("  What would you like to do? (R)etry / (E)dit / (C)ancel: ")
 
 		response, err := reader.ReadString('\n')
 		if err != nil {
@@ -1305,14 +1319,16 @@ func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 		response = strings.ToLower(strings.TrimSpace(response))
 		switch response {
 		case "r", "retry":
-			fmt.Println("   Retrying...")
+			fmt.Println()
+			printMuted("  Retrying...")
 			continue
 		case "e", "edit":
 			return fmt.Errorf("connection test failed, please run 'glf --init' again to edit settings")
 		case "c", "cancel":
 			return fmt.Errorf("configuration cancelled")
 		default:
-			fmt.Println("   Invalid option, please choose R, E, or C")
+			fmt.Println()
+			printWarning("Invalid option, please choose R, E, or C")
 			continue
 		}
 	}
