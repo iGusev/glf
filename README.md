@@ -36,6 +36,27 @@ brew install glf
 brew upgrade glf
 ```
 
+#### MacPorts (macOS)
+
+Alternative installation method for macOS users:
+
+```bash
+# Clone the ports repository
+git clone https://github.com/igusev/macports-ports.git
+cd macports-ports
+
+# Add as a local port source (requires sudo)
+sudo bash -c "echo 'file://$(pwd)' >> /opt/local/etc/macports/sources.conf"
+
+# Update and install
+sudo port sync
+sudo port install glf
+
+# Update to latest version
+sudo port selfupdate
+sudo port upgrade glf
+```
+
 #### Scoop (Windows)
 
 The easiest way to install GLF on Windows:
