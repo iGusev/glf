@@ -919,7 +919,7 @@ func runConfigWizard() error {
 	}
 
 	// Step 2: Show smart token helper
-	if err := showTokenHelper(gitlabURL, reader); err != nil {
+	if err := showTokenHelper(gitlabURL); err != nil {
 		return err
 	}
 
@@ -1016,9 +1016,7 @@ func runConfigWizard() error {
 	shouldCloseIndex := true
 	defer func() {
 		if shouldCloseIndex {
-			if err := descIndex.Close(); err != nil {
-				// Silent close - we're in interactive mode
-			}
+			_ = descIndex.Close() // Silent close - we're in interactive mode
 		}
 	}()
 
@@ -1036,9 +1034,7 @@ func runConfigWizard() error {
 
 	// Close index before launching TUI (TUI will reopen it)
 	shouldCloseIndex = false
-	if err := descIndex.Close(); err != nil {
-		// Silent close
-	}
+	_ = descIndex.Close() // Silent close - we're in interactive mode
 
 	// Launch interactive TUI
 	return runInteractive(allProjects, "", cfg)
@@ -1149,24 +1145,8 @@ func showWelcomeMessage(isReconfiguration bool) {
 	fmt.Println()
 }
 
-// showNextSteps displays post-configuration guidance
-func showNextSteps() {
-	fmt.Println()
-	fmt.Println("✓ Configuration complete!")
-	fmt.Println()
-	fmt.Println("📚 Next Steps:")
-	fmt.Println("   1. Sync projects:    glf --sync")
-	fmt.Println("   2. Start searching:  glf")
-	fmt.Println()
-	fmt.Println("💡 Tips:")
-	fmt.Println("   • Use Ctrl+R in TUI to refresh projects")
-	fmt.Println("   • Use 'glf --help' to see all options")
-	fmt.Println("   • Multi-word search: glf api backend")
-	fmt.Println()
-}
-
 // showTokenHelper displays smart token creation guidance with better formatting
-func showTokenHelper(gitlabURL string, reader *bufio.Reader) error {
+func showTokenHelper(gitlabURL string) error {
 	tokenURL := generateTokenURL(gitlabURL)
 
 	fmt.Println()
@@ -1239,41 +1219,6 @@ func promptForToken(reader *bufio.Reader, existingToken string) (string, error) 
 	}
 
 	return token, nil
-}
-
-// promptForTimeout prompts for API timeout with better formatting
-func promptForTimeout(reader *bufio.Reader, existingTimeout int) int {
-	fmt.Println()
-	printSection("⏱️ ", "API Timeout")
-
-	defaultTimeout := 30
-	if existingTimeout > 0 {
-		defaultTimeout = existingTimeout
-	}
-
-	fmt.Println()
-	printMuted(fmt.Sprintf("  Default: %d seconds", defaultTimeout))
-	fmt.Println()
-	printPrompt(fmt.Sprintf("  Timeout [%d]: ", defaultTimeout))
-
-	timeoutStr, err := reader.ReadString('\n')
-	if err != nil {
-		return defaultTimeout
-	}
-	timeoutStr = strings.TrimSpace(timeoutStr)
-
-	if timeoutStr == "" {
-		return defaultTimeout
-	}
-
-	var timeout int
-	if _, err := fmt.Sscanf(timeoutStr, "%d", &timeout); err != nil || timeout <= 0 {
-		fmt.Println()
-		printWarning(fmt.Sprintf("Invalid timeout, using default: %d seconds", defaultTimeout))
-		return defaultTimeout
-	}
-
-	return timeout
 }
 
 // testConnectionWithRetry tests GitLab connection with better formatting

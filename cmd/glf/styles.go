@@ -10,8 +10,6 @@ import (
 var (
 	// GitLab orange: #FC6D26
 	gitlabOrange = lipgloss.Color("#FC6D26")
-	// GitLab dark: #2E2E2E
-	gitlabDark = lipgloss.Color("#2E2E2E")
 	// Success green
 	successGreen = lipgloss.Color("#00C853")
 	// Warning yellow
@@ -26,11 +24,6 @@ var (
 
 // Style definitions
 var (
-	// Logo style - bold orange
-	logoStyle = lipgloss.NewStyle().
-			Foreground(gitlabOrange).
-			Bold(true)
-
 	// Title style - bold with orange accent
 	titleStyle = lipgloss.NewStyle().
 			Foreground(gitlabOrange).
@@ -72,11 +65,6 @@ var (
 	// URL style
 	urlStyle = lipgloss.NewStyle().
 			Foreground(infoBlue)
-
-	// Highlight style
-	highlightStyle = lipgloss.NewStyle().
-			Foreground(gitlabOrange).
-			Bold(true)
 )
 
 // printLogo prints the styled GLF logo with version
@@ -135,16 +123,6 @@ func printURL(url string) {
 // printPrompt prints an input prompt on same line
 func printPrompt(text string) {
 	fmt.Print(promptStyle.Render(text))
-}
-
-// printHighlight prints highlighted text
-func printHighlight(text string) {
-	fmt.Print(highlightStyle.Render(text))
-}
-
-// printSeparator prints a visual separator
-func printSeparator() {
-	fmt.Println(mutedStyle.Render("─────────────────────────────────────────"))
 }
 
 // printBullet prints a bullet point
