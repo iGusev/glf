@@ -72,6 +72,20 @@ release:
 snapshot:
   version_template: "{{ .Version }}-next"
 
+brews:
+  - repository:
+      owner: igusev
+      name: homebrew-tap
+      branch: main
+    folder: Formula
+    homepage: "https://github.com/igusev/glf"
+    description: "Fast CLI tool for instant fuzzy search across self-hosted GitLab projects"
+    license: "MIT"
+    test: |
+      system "#{bin}/glf", "--help"
+    install: |
+      bin.install "glf"
+
 changelog:
   sort: asc
   use: github

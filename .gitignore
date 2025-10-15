@@ -45,3 +45,6 @@ CLAUDE.md
 
 # Project management
 /backlog/
+
+# Homebrew tap (separate repository)
+homebrew-tap/
