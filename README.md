@@ -1,5 +1,7 @@
 # GLF - GitLab Fuzzy Finder
 
+**[🇬🇧 English](README.md)** | **[🇷🇺 Русский](README_ru.md)** | **[🇨🇳 中文](README_cn.md)**
+
 ⚡ Fast CLI tool for instant fuzzy search across self-hosted GitLab projects using local cache.
 
 [![CI](https://github.com/igusev/glf/workflows/CI/badge.svg)](https://github.com/igusev/glf/actions/workflows/ci.yml)
