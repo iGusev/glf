@@ -699,8 +699,8 @@ func TestRunJSONMode_LargeResultSet(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: cacheDir},
 	}
 
-	// Generate 100 projects
-	const totalProjects = 100
+	// Generate 30 projects (enough to test limit=20)
+	const totalProjects = 30
 	projects := make([]types.Project, totalProjects)
 	for i := 0; i < totalProjects; i++ {
 		projects[i] = types.Project{
