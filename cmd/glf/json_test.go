@@ -1344,6 +1344,11 @@ func TestRunJSONMode_JSONStructureValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip very long description test in short mode (slow on Windows)
+			if testing.Short() && tt.name == "very long description" {
+				t.Skip("Skipping very long description test in short mode")
+			}
+
 			tempDir := t.TempDir()
 			cacheDir := filepath.Join(tempDir, "cache")
 			_ = os.MkdirAll(cacheDir, 0755)
