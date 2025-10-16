@@ -690,6 +690,10 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 
 // TestRunJSONMode_LargeResultSet tests performance with many projects
 func TestRunJSONMode_LargeResultSet(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping large dataset test in short mode")
+	}
+
 	tempDir := t.TempDir()
 	cacheDir := filepath.Join(tempDir, "cache")
 	_ = os.MkdirAll(cacheDir, 0755)
