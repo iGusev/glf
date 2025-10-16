@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/igusev/glf/internal/config"
 	"github.com/igusev/glf/internal/history"
@@ -1108,4 +1109,620 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 	if apiServerScore < 100 {
 		t.Errorf("Expected history-boosted score >100, got %.2f", apiServerScore)
 	}
+}
+
+// TestRunJSONMode_ScoreOrdering tests that results are sorted by score descending
+func TestRunJSONMode_ScoreOrdering(t *testing.T) {
+	tempDir := t.TempDir()
+	cacheDir := filepath.Join(tempDir, "cache")
+	_ = os.MkdirAll(cacheDir, 0755)
+
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: cacheDir},
+	}
+
+	projects := []types.Project{
+		{Path: "project/alpha", Name: "Alpha", Description: "API service alpha"},
+		{Path: "project/beta", Name: "Beta", Description: "API service beta"},
+		{Path: "project/gamma", Name: "Gamma", Description: "API service gamma"},
+		{Path: "project/delta", Name: "Delta", Description: "API service delta"},
+		{Path: "project/epsilon", Name: "Epsilon", Description: "API service epsilon"},
+	}
+
+	// Create and populate index
+	indexPath := filepath.Join(cacheDir, "description.bleve")
+	descIndex, err := index.NewDescriptionIndex(indexPath)
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+
+	for _, proj := range projects {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+			descIndex.Close()
+			t.Fatalf("Failed to add to index: %v", err)
+		}
+	}
+
+	// Create history with different selection counts
+	historyPath := filepath.Join(cacheDir, "history.gob")
+	hist := history.New(historyPath)
+
+	// Gamma: 10 selections (highest score)
+	for i := 0; i < 10; i++ {
+		hist.RecordSelectionWithQuery("api", "project/gamma")
+	}
+	// Beta: 5 selections (medium score)
+	for i := 0; i < 5; i++ {
+		hist.RecordSelectionWithQuery("api", "project/beta")
+	}
+	// Alpha: 2 selections (low score)
+	for i := 0; i < 2; i++ {
+		hist.RecordSelectionWithQuery("api", "project/alpha")
+	}
+	// Delta and Epsilon: no history (search score only)
+
+	if err := hist.Save(); err != nil {
+		t.Fatalf("Failed to save history: %v", err)
+	}
+
+	// Enable scores flag
+	oldShowScores := showScores
+	showScores = true
+	defer func() { showScores = oldShowScores }()
+
+	// Set limit
+	oldLimit := limitResults
+	limitResults = 10
+	defer func() { limitResults = oldLimit }()
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err = runJSONMode(projects, "api", cfg, descIndex)
+	descIndex.Close()
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runJSONMode failed: %v", err)
+	}
+
+	// Read and parse output
+	buf := make([]byte, 16384)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	var result JSONSearchResult
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("Failed to parse JSON: %v", err)
+	}
+
+	if len(result.Results) < 3 {
+		t.Fatalf("Expected at least 3 results, got %d", len(result.Results))
+	}
+
+	// Verify scores are in descending order
+	for i := 0; i < len(result.Results)-1; i++ {
+		if result.Results[i].Score < result.Results[i+1].Score {
+			t.Errorf("Results not sorted by score: result[%d].Score (%.2f) < result[%d].Score (%.2f)",
+				i, result.Results[i].Score, i+1, result.Results[i+1].Score)
+		}
+	}
+
+	// Verify highest history project appears first (gamma)
+	foundGamma := false
+	for i, proj := range result.Results {
+		if proj.Path == "project/gamma" {
+			foundGamma = true
+			if i > 0 {
+				t.Errorf("Expected 'project/gamma' (10 selections) to be first, but found at index %d", i)
+			}
+			break
+		}
+	}
+	if !foundGamma {
+		t.Error("Expected 'project/gamma' in results")
+	}
+}
+
+// TestRunJSONMode_QueryEdgeCases tests various edge case queries
+func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
+	tests := []struct {
+		name          string
+		query         string
+		expectResults bool
+	}{
+		{"whitespace only spaces", "   ", false},
+		{"whitespace tabs and newlines", "\t\n", false},
+		{"very long query", string(make([]byte, 1000)), false},
+		{"repeated tokens", "api api api backend backend", true},
+		{"only punctuation", "!!!", false},
+		{"mixed case", "API Backend", true},
+		{"numbers only", "123456", false},
+		{"special chars", "!@#$%^&*()", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			cacheDir := filepath.Join(tempDir, "cache")
+			_ = os.MkdirAll(cacheDir, 0755)
+
+			cfg := &config.Config{
+				GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+				Cache:  config.CacheConfig{Dir: cacheDir},
+			}
+
+			projects := []types.Project{
+				{Path: "backend/api", Name: "API Backend", Description: "REST API backend service"},
+			}
+
+			// Create and populate index
+			indexPath := filepath.Join(cacheDir, "description.bleve")
+			descIndex, err := index.NewDescriptionIndex(indexPath)
+			if err != nil {
+				t.Fatalf("Failed to create index: %v", err)
+			}
+
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+				descIndex.Close()
+				t.Fatalf("Failed to add to index: %v", err)
+			}
+
+			// Set limit
+			oldLimit := limitResults
+			limitResults = 10
+			defer func() { limitResults = oldLimit }()
+
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Should not panic or crash
+			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			descIndex.Close()
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			if err != nil {
+				t.Fatalf("runJSONMode failed: %v", err)
+			}
+
+			// Read and parse output
+			buf := make([]byte, 32768)
+			n, _ := r.Read(buf)
+			output := string(buf[:n])
+
+			var result JSONSearchResult
+			if err := json.Unmarshal([]byte(output), &result); err != nil {
+				t.Fatalf("Failed to parse JSON: %v", err)
+			}
+
+			// Verify query is preserved exactly
+			if result.Query != tt.query {
+				t.Errorf("Expected query to be preserved, got different value")
+			}
+
+			// Results should always be an array (not nil)
+			if result.Results == nil {
+				t.Error("Results should not be nil")
+			}
+		})
+	}
+}
+
+// TestRunJSONMode_JSONStructureValidation tests that output is always valid JSON
+func TestRunJSONMode_JSONStructureValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		description string
+	}{
+		{"control chars newline", "Description with\nnewlines\nembedded"},
+		{"control chars tab", "Description\twith\ttabs"},
+		{"control chars carriage return", "Description\rwith\rreturns"},
+		{"unicode BOM", "\ufeffProject with BOM"},
+		{"quotes and escapes", `Project with "quotes" and \backslashes\`},
+		{"very long description", string(make([]byte, 10000))},
+		{"empty strings", ""},
+		{"null-like string", "null"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			cacheDir := filepath.Join(tempDir, "cache")
+			_ = os.MkdirAll(cacheDir, 0755)
+
+			cfg := &config.Config{
+				GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+				Cache:  config.CacheConfig{Dir: cacheDir},
+			}
+
+			projects := []types.Project{
+				{Path: "test/project", Name: "Test", Description: tt.description},
+			}
+
+			// Create index
+			indexPath := filepath.Join(cacheDir, "description.bleve")
+			descIndex, err := index.NewDescriptionIndex(indexPath)
+			if err != nil {
+				t.Fatalf("Failed to create index: %v", err)
+			}
+			defer descIndex.Close()
+
+			// Set limit
+			oldLimit := limitResults
+			limitResults = 10
+			defer func() { limitResults = oldLimit }()
+
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			err = runJSONMode(projects, "", cfg, descIndex)
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			if err != nil {
+				t.Fatalf("runJSONMode failed: %v", err)
+			}
+
+			// Read output
+			buf := make([]byte, 65536)
+			n, _ := r.Read(buf)
+			output := buf[:n]
+
+			// Verify output is valid JSON
+			if !json.Valid(output) {
+				t.Errorf("Output is not valid JSON: %s", string(output[:100]))
+			}
+
+			// Verify it can be unmarshaled
+			var result JSONSearchResult
+			if err := json.Unmarshal(output, &result); err != nil {
+				t.Errorf("Failed to unmarshal JSON: %v", err)
+			}
+		})
+	}
+}
+
+// TestRunJSONMode_VeryLargeDataset tests performance with 1000 projects
+func TestRunJSONMode_VeryLargeDataset(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping large dataset test in short mode")
+	}
+
+	tempDir := t.TempDir()
+	cacheDir := filepath.Join(tempDir, "cache")
+	_ = os.MkdirAll(cacheDir, 0755)
+
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: cacheDir},
+	}
+
+	// Generate 1000 projects
+	const totalProjects = 1000
+	projects := make([]types.Project, totalProjects)
+	for i := 0; i < totalProjects; i++ {
+		projects[i] = types.Project{
+			Path:        filepath.Join("group", "subgroup", "project"+string(rune('0'+i%100))),
+			Name:        "Project " + string(rune('A'+i%26)),
+			Description: "Description " + string(rune('0'+i%10)),
+		}
+	}
+
+	// Create index (don't populate - testing without query)
+	indexPath := filepath.Join(cacheDir, "description.bleve")
+	descIndex, err := index.NewDescriptionIndex(indexPath)
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+	defer descIndex.Close()
+
+	// Set limit
+	oldLimit := limitResults
+	limitResults = 20
+	defer func() { limitResults = oldLimit }()
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Measure performance
+	start := time.Now()
+	err = runJSONMode(projects, "", cfg, descIndex)
+	duration := time.Since(start)
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runJSONMode failed: %v", err)
+	}
+
+	// Verify performance (should be < 2 seconds)
+	if duration > 2*time.Second {
+		t.Errorf("Performance issue: took %v for 1000 projects (expected < 2s)", duration)
+	}
+
+	// Read and parse output
+	buf := make([]byte, 65536)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	var result JSONSearchResult
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("Failed to parse JSON: %v", err)
+	}
+
+	// Verify limit applied
+	if len(result.Results) != 20 {
+		t.Errorf("Expected 20 results (limit), got %d", len(result.Results))
+	}
+
+	if result.Total != 20 {
+		t.Errorf("Expected total 20, got %d", result.Total)
+	}
+}
+
+// TestRunJSONMode_SecurityValidation tests that malicious queries don't cause issues
+func TestRunJSONMode_SecurityValidation(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"SQL-like injection", "'; DROP TABLE projects--"},
+		{"script injection", "<script>alert('xss')</script>"},
+		{"path traversal", "../../etc/passwd"},
+		{"null bytes", "test\x00malicious"},
+		{"command injection", "; rm -rf /"},
+		{"LDAP injection", "admin)(&(password=*))"},
+		{"XML injection", "<?xml version='1.0'?><!DOCTYPE foo [<!ENTITY xxe SYSTEM 'file:///etc/passwd'>]>"},
+		{"template injection", "{{7*7}}"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			cacheDir := filepath.Join(tempDir, "cache")
+			_ = os.MkdirAll(cacheDir, 0755)
+
+			cfg := &config.Config{
+				GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+				Cache:  config.CacheConfig{Dir: cacheDir},
+			}
+
+			projects := []types.Project{
+				{Path: "test/project", Name: "Test", Description: "Safe description"},
+			}
+
+			// Create and populate index
+			indexPath := filepath.Join(cacheDir, "description.bleve")
+			descIndex, err := index.NewDescriptionIndex(indexPath)
+			if err != nil {
+				t.Fatalf("Failed to create index: %v", err)
+			}
+
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+				descIndex.Close()
+				t.Fatalf("Failed to add to index: %v", err)
+			}
+
+			// Set limit
+			oldLimit := limitResults
+			limitResults = 10
+			defer func() { limitResults = oldLimit }()
+
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			// Should not execute or cause security issues
+			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			descIndex.Close()
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			if err != nil {
+				t.Fatalf("runJSONMode failed: %v", err)
+			}
+
+			// Read and parse output
+			buf := make([]byte, 8192)
+			n, _ := r.Read(buf)
+			output := string(buf[:n])
+
+			// Verify output is valid JSON (not executed)
+			var result JSONSearchResult
+			if err := json.Unmarshal([]byte(output), &result); err != nil {
+				t.Fatalf("Failed to parse JSON: %v", err)
+			}
+
+			// Verify query is safely escaped in JSON
+			if result.Query != tt.query {
+				t.Errorf("Query not preserved correctly")
+			}
+		})
+	}
+}
+
+// TestRunJSONMode_UTF8EdgeCases tests Unicode edge cases
+func TestRunJSONMode_UTF8EdgeCases(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"zero-width space", "api\u200Bbackend"},
+		{"right-to-left override", "api\u202Ebackend"},
+		{"combining characters", "café"},
+		{"4-byte UTF-8", "𝕳𝖊𝖑𝖑𝖔 API"},
+		{"mixed scripts", "API сервис backend"},
+		{"emoji sequence", "🚀💻📱 project"},
+		{"direction marks", "test\u200Eproject\u200F"},
+		{"zero-width joiner", "test\u200Dproject"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			cacheDir := filepath.Join(tempDir, "cache")
+			_ = os.MkdirAll(cacheDir, 0755)
+
+			cfg := &config.Config{
+				GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+				Cache:  config.CacheConfig{Dir: cacheDir},
+			}
+
+			projects := []types.Project{
+				{Path: "test/project", Name: "Test", Description: tt.query},
+			}
+
+			// Create and populate index
+			indexPath := filepath.Join(cacheDir, "description.bleve")
+			descIndex, err := index.NewDescriptionIndex(indexPath)
+			if err != nil {
+				t.Fatalf("Failed to create index: %v", err)
+			}
+
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+				descIndex.Close()
+				t.Fatalf("Failed to add to index: %v", err)
+			}
+
+			// Set limit
+			oldLimit := limitResults
+			limitResults = 10
+			defer func() { limitResults = oldLimit }()
+
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			descIndex.Close()
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			if err != nil {
+				t.Fatalf("runJSONMode failed: %v", err)
+			}
+
+			// Read and parse output
+			buf := make([]byte, 16384)
+			n, _ := r.Read(buf)
+			output := string(buf[:n])
+
+			// Verify output is valid UTF-8 encoded JSON
+			if !json.Valid([]byte(output)) {
+				t.Error("Output is not valid JSON")
+			}
+
+			var result JSONSearchResult
+			if err := json.Unmarshal([]byte(output), &result); err != nil {
+				t.Fatalf("Failed to parse JSON: %v", err)
+			}
+
+			// Verify query is preserved exactly (no mojibake)
+			if result.Query != tt.query {
+				t.Errorf("Query not preserved. Expected '%s', got '%s'", tt.query, result.Query)
+			}
+		})
+	}
+}
+
+// TestRunJSONMode_PerformanceBenchmark benchmarks JSON mode performance
+func TestRunJSONMode_PerformanceBenchmark(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping benchmark in short mode")
+	}
+
+	tempDir := t.TempDir()
+	cacheDir := filepath.Join(tempDir, "cache")
+	_ = os.MkdirAll(cacheDir, 0755)
+
+	cfg := &config.Config{
+		GitLab: config.GitLabConfig{URL: "https://gitlab.example.com"},
+		Cache:  config.CacheConfig{Dir: cacheDir},
+	}
+
+	// Generate 100 projects for benchmark
+	const totalProjects = 100
+	projects := make([]types.Project, totalProjects)
+	for i := 0; i < totalProjects; i++ {
+		projects[i] = types.Project{
+			Path:        filepath.Join("group", "project"+string(rune('A'+i%26))),
+			Name:        "Project " + string(rune('A'+i%26)),
+			Description: "API backend service number " + string(rune('0'+i%10)),
+		}
+	}
+
+	// Create and populate index
+	indexPath := filepath.Join(cacheDir, "description.bleve")
+	descIndex, err := index.NewDescriptionIndex(indexPath)
+	if err != nil {
+		t.Fatalf("Failed to create index: %v", err)
+	}
+	defer descIndex.Close()
+
+	for _, proj := range projects {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+			t.Fatalf("Failed to add to index: %v", err)
+		}
+	}
+
+	// Set limit
+	oldLimit := limitResults
+	limitResults = 20
+	defer func() { limitResults = oldLimit }()
+
+	// Run multiple iterations to measure average performance
+	iterations := 10
+	var totalDuration time.Duration
+
+	for i := 0; i < iterations; i++ {
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		start := time.Now()
+		err := runJSONMode(projects, "api", cfg, descIndex)
+		duration := time.Since(start)
+
+		w.Close()
+		os.Stdout = oldStdout
+
+		// Drain pipe
+		buf := make([]byte, 32768)
+		_, _ = r.Read(buf)
+
+		if err != nil {
+			t.Fatalf("runJSONMode failed: %v", err)
+		}
+
+		totalDuration += duration
+	}
+
+	avgDuration := totalDuration / time.Duration(iterations)
+
+	// Performance target: < 100ms per operation
+	if avgDuration > 100*time.Millisecond {
+		t.Errorf("Performance below target: avg %v (expected < 100ms)", avgDuration)
+	}
+
+	t.Logf("Average performance: %v per operation (%d iterations)", avgDuration, iterations)
 }
