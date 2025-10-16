@@ -253,14 +253,32 @@ glf --json api
 # Limit number of results
 glf --json --limit 5 backend
 
-# Include relevance scores
+# Include relevance scores (optional)
 glf --json --scores microservice
 
 # Get all projects (no query)
 glf --json --limit 100
 ```
 
-**JSON Output Format:**
+**JSON Output Format (without --scores):**
+
+```json
+{
+  "query": "api",
+  "results": [
+    {
+      "path": "backend/api-server",
+      "name": "API Server",
+      "description": "REST API for authentication",
+      "url": "https://gitlab.example.com/backend/api-server"
+    }
+  ],
+  "total": 5,
+  "limit": 20
+}
+```
+
+**JSON Output Format (with --scores):**
 
 ```json
 {
@@ -279,11 +297,21 @@ glf --json --limit 100
 }
 ```
 
+**Score Breakdown:**
+
+When using `--scores` flag, each project includes a relevance score that combines:
+- **Search Relevance**: Fuzzy matching + full-text search score
+- **Usage History**: Frequency of previous selections (with exponential decay)
+- **Query-Specific Boost**: 3x multiplier for projects selected with this exact query
+
+Higher scores indicate better matches. Projects are automatically sorted by score (descending).
+
 **Use Cases:**
 - **Raycast Extension**: Quick project navigation from Raycast
 - **Alfred Workflow**: GitLab project search in Alfred
 - **CI/CD Scripts**: Automated project discovery and URL generation
 - **Custom Tools**: Build your own integrations on top of GLF's search
+- **Analytics**: Use `--scores` to understand ranking and optimize search queries
 
 **Error Handling:**
 
