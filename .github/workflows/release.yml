@@ -84,12 +84,14 @@ jobs:
           # Update version
           sed -i '' "s/go.setup[[:space:]]*github.com\/igusev\/glf[[:space:]]*[0-9.]*[[:space:]]*v/go.setup            github.com\/igusev\/glf ${VERSION} v/" "$PORTFILE"
 
-          # Update checksums (multi-line replacement)
-          sed -i '' "/^checksums/,/^$/c\\
-checksums           rmd160  $RMD160 \\\\\\
-                    sha256  $SHA256 \\\\\\
-                    size    $SIZE\\
-" "$PORTFILE"
+          # Update checksums
+          cat > /tmp/checksums.txt << EOF
+          checksums           rmd160  $RMD160 \\
+                              sha256  $SHA256 \\
+                              size    $SIZE
+          EOF
+          sed -i '' "/^checksums/,/^$/d" "$PORTFILE"
+          sed -i '' "/^revision/r /tmp/checksums.txt" "$PORTFILE"
 
       - name: Commit and push changes
         working-directory: macports-ports
