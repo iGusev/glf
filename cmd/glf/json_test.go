@@ -82,7 +82,7 @@ func TestRunJSONMode_WithQuery(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add document: %v", err)
 		}
@@ -246,7 +246,7 @@ func TestRunJSONMode_WithScores(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -563,7 +563,7 @@ func TestRunJSONMode_SpecialCharacters(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -637,7 +637,7 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -797,7 +797,7 @@ func TestRunJSONMode_HistoryLoadError(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add to index: %v", err)
 	}
@@ -866,7 +866,7 @@ func TestRunJSONMode_MultiTokenQuery(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -1035,7 +1035,7 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -1142,7 +1142,7 @@ func TestRunJSONMode_ScoreOrdering(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -1277,7 +1277,7 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -1527,7 +1527,7 @@ func TestRunJSONMode_SecurityValidation(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -1610,7 +1610,7 @@ func TestRunJSONMode_UTF8EdgeCases(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -1693,7 +1693,7 @@ func TestRunJSONMode_PerformanceBenchmark(t *testing.T) {
 	defer descIndex.Close()
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
 			t.Fatalf("Failed to add to index: %v", err)
 		}
 	}

@@ -49,8 +49,16 @@ func New(url, token string, timeout time.Duration) (*Client, error) {
 
 // FetchAllProjects fetches all accessible projects from GitLab using parallel pagination
 // If since is provided, only fetches projects with last_activity_after >= since (incremental sync)
-// Returns a slice of Project structs containing path and name
+// Returns a slice of Project structs containing path, name, and starred information
 func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
+	// Step 0: Fetch starred projects
+	logger.Debug("Fetching starred projects...")
+	starredProjects, err := c.FetchStarredProjects()
+	if err != nil {
+		logger.Debug("Warning: failed to fetch starred projects: %v", err)
+		starredProjects = make(map[string]bool)
+	}
+
 	// Step 1: Make initial request to get total pages
 	opt := &gitlab.ListProjectsOptions{
 		ListOptions: gitlab.ListOptions{
@@ -88,6 +96,7 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 				Path:        project.PathWithNamespace,
 				Name:        project.Name,
 				Description: project.Description,
+				Starred:     starredProjects[project.PathWithNamespace],
 			})
 		}
 		logger.Debug("Single page, fetched %d projects", len(result))
@@ -125,6 +134,7 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 			Path:        project.PathWithNamespace,
 			Name:        project.Name,
 			Description: project.Description,
+			Starred:     starredProjects[project.PathWithNamespace],
 		})
 	}
 	results <- pageResult{page: 1, projects: firstPageProjs, err: nil}
@@ -165,6 +175,7 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 					Path:        project.PathWithNamespace,
 					Name:        project.Name,
 					Description: project.Description,
+					Starred:     starredProjects[project.PathWithNamespace],
 				})
 			}
 
@@ -219,4 +230,103 @@ func (c *Client) GetCurrentUsername() (string, error) {
 		return "", fmt.Errorf("failed to fetch current user: %w", err)
 	}
 	return user.Username, nil
+}
+
+// FetchStarredProjects fetches all projects starred by the current user
+// Returns a map of project PathWithNamespace → true for O(1) lookup
+func (c *Client) FetchStarredProjects() (map[string]bool, error) {
+	result := make(map[string]bool)
+
+	// Step 1: Make initial request to get total pages
+	opt := &gitlab.ListProjectsOptions{
+		ListOptions: gitlab.ListOptions{
+			PerPage: 100,
+			Page:    1,
+		},
+		Starred: gitlab.Ptr(true), // Only starred projects
+		Simple:  gitlab.Ptr(true), // Return only limited fields
+	}
+
+	// First request to get pagination info
+	firstPageProjects, resp, err := c.client.Projects.ListProjects(opt)
+	if err != nil {
+		// Don't fail completely, just log warning and return empty map
+		logger.Debug("Warning: Failed to fetch starred projects: %v", err)
+		return result, nil
+	}
+
+	totalPages := resp.TotalPages
+	logger.Debug("Fetching starred projects: %d pages", totalPages)
+
+	// Add first page results
+	for _, project := range firstPageProjects {
+		result[project.PathWithNamespace] = true
+	}
+
+	if totalPages <= 1 {
+		logger.Debug("Fetched %d starred projects", len(result))
+		return result, nil
+	}
+
+	// Step 2: Parallel fetch remaining pages
+	const maxConcurrent = 10
+
+	type pageResult struct {
+		paths []string
+		page  int
+	}
+
+	results := make(chan pageResult, totalPages)
+	semaphore := make(chan struct{}, maxConcurrent)
+	var wg sync.WaitGroup
+
+	// Launch goroutines for pages 2..N
+	for page := 2; page <= totalPages; page++ {
+		wg.Add(1)
+		go func(pageNum int) {
+			defer wg.Done()
+
+			// Acquire semaphore
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			pageOpt := &gitlab.ListProjectsOptions{
+				ListOptions: gitlab.ListOptions{
+					PerPage: 100,
+					Page:    pageNum,
+				},
+				Starred: gitlab.Ptr(true),
+				Simple:  gitlab.Ptr(true),
+			}
+
+			projects, _, err := c.client.Projects.ListProjects(pageOpt)
+			if err != nil {
+				logger.Debug("Warning: Failed to fetch starred projects page %d: %v", pageNum, err)
+				return
+			}
+
+			var paths []string
+			for _, project := range projects {
+				paths = append(paths, project.PathWithNamespace)
+			}
+
+			results <- pageResult{page: pageNum, paths: paths}
+		}(page)
+	}
+
+	// Close results channel after all goroutines finish
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect all results
+	for pageRes := range results {
+		for _, path := range pageRes.paths {
+			result[path] = true
+		}
+	}
+
+	logger.Debug("Fetched %d starred projects total", len(result))
+	return result, nil
 }

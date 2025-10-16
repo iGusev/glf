@@ -473,3 +473,50 @@ func (h *History) GetAllScoresForQuery(query string) map[string]int {
 
 	return intScores
 }
+
+// Entry represents a single history entry for display
+type Entry struct {
+	ProjectPath string
+	Count       int
+	LastUsed    time.Time
+	Score       int
+}
+
+// GetAllEntries returns all history entries sorted by score (highest first)
+func (h *History) GetAllEntries() []Entry {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	entries := make([]Entry, 0, len(h.selections))
+
+	for item, info := range h.selections {
+		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
+		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
+
+		// Skip very old entries
+		if decayMultiplier == 0 {
+			continue
+		}
+
+		score := int(float64(info.Count*10) * decayMultiplier)
+
+		entries = append(entries, Entry{
+			ProjectPath: item,
+			Count:       info.Count,
+			LastUsed:    info.LastUsed,
+			Score:       score,
+		})
+	}
+
+	// Sort by score descending (highest first)
+	// Using simple bubble sort for small datasets
+	for i := 0; i < len(entries)-1; i++ {
+		for j := 0; j < len(entries)-i-1; j++ {
+			if entries[j].Score < entries[j+1].Score {
+				entries[j], entries[j+1] = entries[j+1], entries[j]
+			}
+		}
+	}
+
+	return entries
+}

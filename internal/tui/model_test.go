@@ -1358,7 +1358,8 @@ func TestRenderMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := renderMatch(tt.match, style, highlightStyle, snippetStyle, tt.query, tt.showScores)
+			excludedStarredStyle := lipgloss.NewStyle()
+			result := renderMatch(tt.match, style, highlightStyle, snippetStyle, excludedStarredStyle, tt.query, tt.showScores, false)
 
 			// Result should not be empty
 			if result == "" {

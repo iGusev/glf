@@ -8,6 +8,7 @@ type Project struct {
 	Path        string // PathWithNamespace (e.g., "numbuster/api/payment/payselection/callback")
 	Name        string // Project name (e.g., "payselection-callback")
 	Description string // Project description (may be empty)
+	Starred     bool   // Whether the project is starred by the user
 }
 
 // SearchableString returns a combined string for fuzzy searching

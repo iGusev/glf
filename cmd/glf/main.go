@@ -64,6 +64,7 @@ type (
 		Name        string  `json:"name"`            // Project name
 		Description string  `json:"description"`     // Project description
 		URL         string  `json:"url"`             // Full project URL
+		Starred     bool    `json:"starred"`         // Whether the project is starred by the user
 		Score       float64 `json:"score,omitempty"` // Relevance score (optional, with --scores)
 	}
 
@@ -74,15 +75,18 @@ type (
 )
 
 var (
-	verbose      bool // Flag to enable verbose logging
-	showScores   bool // Flag to show score breakdown (search + history)
-	autoGo       bool // Flag to automatically select first result and open in browser
-	doSync       bool // Flag to perform sync instead of search
-	forceFull    bool // Flag to force full sync (ignore incremental)
-	doInit       bool // Flag to run interactive configuration wizard
-	resetFlag    bool // Flag to reset configuration and start from scratch
-	jsonOutput   bool // Flag to enable JSON output mode for API integrations
-	limitResults int  // Flag to limit number of results in JSON mode
+	verbose        bool // Flag to enable verbose logging
+	showScores     bool // Flag to show score breakdown (search + history)
+	autoGo         bool // Flag to automatically select first result and open in browser
+	doSync         bool // Flag to perform sync instead of search
+	forceFull      bool // Flag to force full sync (ignore incremental)
+	doInit         bool // Flag to run interactive configuration wizard
+	resetFlag      bool // Flag to reset configuration and start from scratch
+	jsonOutput     bool // Flag to enable JSON output mode for API integrations
+	limitResults   int  // Flag to limit number of results in JSON mode
+	testColors     bool // Flag to show color palette examples
+	showHistory    bool // Flag to display search history
+	clearHistory   bool // Flag to clear search history
 )
 
 var rootCmd = &cobra.Command{
@@ -119,6 +123,12 @@ Configuration:
 
 // runSearch handles the default search behavior
 func runSearch(cmd *cobra.Command, args []string) error {
+	// Handle --test-colors flag (no config needed)
+	if testColors {
+		showColorPalette()
+		return nil
+	}
+
 	// Handle --init flag first (before loading config)
 	if doInit {
 		return runConfigWizard()
@@ -128,6 +138,16 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("configuration error: %w", err)
+	}
+
+	// Handle --history flag (show history and exit)
+	if showHistory {
+		return runShowHistory(cfg)
+	}
+
+	// Handle --clear-history flag (clear history and exit)
+	if clearHistory {
+		return runClearHistory(cfg)
 	}
 
 	// Handle "glf ." - open current Git repository
@@ -143,14 +163,25 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	// Open description index
 	indexPath := filepath.Join(cfg.Cache.Dir, "description.bleve")
 
-	// Check if index exists
-	if !index.Exists(indexPath) {
-		return fmt.Errorf("index not found, run 'glf --sync' first")
-	}
-
-	descIndex, err := index.NewDescriptionIndex(indexPath)
+	descIndex, recreated, err := index.NewDescriptionIndexWithAutoRecreate(indexPath)
 	if err != nil {
 		return fmt.Errorf("failed to open index: %w", err)
+	}
+
+	// If index was recreated due to version mismatch, trigger full sync
+	if recreated {
+		logger.Info("Index schema updated, performing full sync to rebuild cache...")
+		if err := descIndex.Close(); err != nil {
+			logger.Debug("Failed to close index: %v", err)
+		}
+		if err := performSyncInternal(cfg, false, true); err != nil {
+			return fmt.Errorf("failed to rebuild index after schema update: %w", err)
+		}
+		// Reopen the index after sync
+		descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
+		if err != nil {
+			return fmt.Errorf("failed to reopen index after sync: %w", err)
+		}
 	}
 
 	// Ensure index is closed on all return paths
@@ -167,6 +198,34 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	allProjects, err := descIndex.GetAllProjects()
 	if err != nil {
 		return fmt.Errorf("failed to load projects: %w", err)
+	}
+
+	// Check if we have any projects - if not, run sync
+	if len(allProjects) == 0 {
+		logger.Debug("No projects in index, running sync...")
+		shouldCloseIndex = false
+		if err := descIndex.Close(); err != nil {
+			logger.Debug("Failed to close index: %v", err)
+		}
+
+		fmt.Println("First run detected - synchronizing projects from GitLab...")
+		fmt.Println()
+		if err := performSyncInternal(cfg, false, true); err != nil {
+			return fmt.Errorf("sync failed: %w\n\nYou can try running 'glf --sync' manually", err)
+		}
+		fmt.Println()
+
+		// Reopen index and reload projects
+		descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
+		if err != nil {
+			return fmt.Errorf("failed to reopen index after sync: %w", err)
+		}
+		shouldCloseIndex = true
+
+		allProjects, err = descIndex.GetAllProjects()
+		if err != nil {
+			return fmt.Errorf("failed to load projects after sync: %w", err)
+		}
 	}
 
 	// Decide mode: interactive or direct search
@@ -253,6 +312,7 @@ func runJSONMode(projects []types.Project, query string, cfg *config.Config, des
 			Name:        match.Project.Name,
 			Description: match.Project.Description,
 			URL:         projectURL,
+			Starred:     match.Project.Starred,
 		}
 
 		// Include score if --scores flag is set
@@ -574,6 +634,82 @@ func runOpenCurrent(cfg *config.Config) error {
 	return nil
 }
 
+// runShowHistory displays search history with scores
+func runShowHistory(cfg *config.Config) error {
+	historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
+	hist := history.New(historyPath)
+
+	// Load history synchronously
+	errCh := hist.LoadAsync()
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("failed to load history: %w", err)
+	}
+
+	// Get all history entries sorted by score
+	entries := hist.GetAllEntries()
+
+	if len(entries) == 0 {
+		fmt.Println("No history yet. Use glf to search and select projects.")
+		return nil
+	}
+
+	// Display history
+	fmt.Printf("Search History (%d projects)\n\n", len(entries))
+	fmt.Println("Project Path                                              Count  Last Used         Score")
+	fmt.Println("─────────────────────────────────────────────────────── ────── ───────────────── ─────")
+
+	for _, entry := range entries {
+		// Format last used time
+		lastUsed := entry.LastUsed.Format("2006-01-02 15:04")
+
+		// Truncate long paths
+		path := entry.ProjectPath
+		if len(path) > 55 {
+			path = path[:52] + "..."
+		}
+
+		fmt.Printf("%-55s %6d %17s %5d\n", path, entry.Count, lastUsed, entry.Score)
+	}
+
+	// Show stats
+	totalSelections, uniqueProjects := hist.Stats()
+	fmt.Printf("\nTotal selections: %d | Unique projects: %d\n", totalSelections, uniqueProjects)
+
+	return nil
+}
+
+// runClearHistory clears the search history
+func runClearHistory(cfg *config.Config) error {
+	historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
+	hist := history.New(historyPath)
+
+	// Load history synchronously
+	errCh := hist.LoadAsync()
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("failed to load history: %w", err)
+	}
+
+	// Get stats before clearing
+	totalSelections, uniqueProjects := hist.Stats()
+
+	if totalSelections == 0 {
+		fmt.Println("History is already empty.")
+		return nil
+	}
+
+	// Clear history
+	hist.Clear()
+
+	// Save empty history
+	if err := hist.Save(); err != nil {
+		return fmt.Errorf("failed to save cleared history: %w", err)
+	}
+
+	fmt.Printf("✓ History cleared: %d selections from %d projects removed\n", totalSelections, uniqueProjects)
+
+	return nil
+}
+
 // runInteractive launches the interactive TUI with optional initial query
 func runInteractive(projects []types.Project, initialQuery string, cfg *config.Config) error {
 	if len(projects) == 0 {
@@ -668,9 +804,22 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			}
 
 			// Open or create description index
-			descIndex, err := index.NewDescriptionIndex(indexPath)
+			descIndex, recreated, err := index.NewDescriptionIndexWithAutoRecreate(indexPath)
 			if err != nil {
 				return tui.SyncCompleteMsg{Err: err}
+			}
+
+			// If index was recreated due to version mismatch, trigger full sync in TUI context
+			if recreated {
+				logger.Debug("TUI sync: index schema updated, switching to full sync mode")
+				syncMode = syncModeFull
+
+				// Re-fetch all projects for full sync
+				newProjects, err = client.FetchAllProjects(nil)
+				if err != nil {
+					return tui.SyncCompleteMsg{Err: err}
+				}
+				logger.Debug("TUI sync: re-fetched %d projects for full sync after index recreation", len(newProjects))
 			}
 			defer func() {
 				if err := descIndex.Close(); err != nil {
@@ -683,9 +832,10 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			for _, proj := range newProjects {
 				// Index all projects, even those without descriptions
 				batchDocs = append(batchDocs, index.DescriptionDocument{
-					ProjectPath: proj.Path,
-					ProjectName: proj.Name,
-					Description: proj.Description,
+					ProjectPath:  proj.Path,
+					ProjectName:  proj.Name,
+					Description:  proj.Description,
+					Starred:      proj.Starred,
 				})
 			}
 
@@ -920,9 +1070,14 @@ func indexDescriptions(projects []types.Project, cacheDir string, silent bool) e
 
 	// Create or open index
 	indexPath := filepath.Join(cacheDir, "description.bleve")
-	descriptionIndex, err := index.NewDescriptionIndex(indexPath)
+	descriptionIndex, recreated, err := index.NewDescriptionIndexWithAutoRecreate(indexPath)
 	if err != nil {
 		return fmt.Errorf("failed to create description index: %w", err)
+	}
+
+	// If index was recreated, we're already in a full sync context, so just log it
+	if recreated {
+		logger.Debug("Index schema updated during indexing, new index created with current version")
 	}
 	defer func() {
 		if err := descriptionIndex.Close(); err != nil {
@@ -945,9 +1100,10 @@ func indexDescriptions(projects []types.Project, cacheDir string, silent bool) e
 	for _, proj := range projects {
 		// Index all projects, even those without descriptions
 		batchDocs = append(batchDocs, index.DescriptionDocument{
-			ProjectPath: proj.Path,
-			ProjectName: proj.Name,
-			Description: proj.Description,
+			ProjectPath:  proj.Path,
+			ProjectName:  proj.Name,
+			Description:  proj.Description,
+			Starred:      proj.Starred,
 		})
 
 		// Index batch when it reaches 100 docs
@@ -1133,12 +1289,13 @@ func runConfigWizard() error {
 
 	// Load projects from index
 	indexPath := filepath.Join(cfg.Cache.Dir, "description.bleve")
-	descIndex, err := index.NewDescriptionIndex(indexPath)
+	descIndex, _, err := index.NewDescriptionIndexWithAutoRecreate(indexPath)
 	if err != nil {
 		fmt.Printf("⚠️  Failed to open index: %v\n", err)
 		fmt.Println("Run 'glf' to start searching.")
 		return nil
 	}
+	// Note: recreated flag ignored here - wizard already ran full sync above
 
 	// Use flag to control defer close behavior
 	shouldCloseIndex := true
@@ -1421,6 +1578,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&resetFlag, "reset", false, "reset configuration and start from scratch (use with --init)")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output results in JSON format (for integrations)")
 	rootCmd.PersistentFlags().IntVar(&limitResults, "limit", 20, "limit number of results (for JSON mode)")
+	rootCmd.PersistentFlags().BoolVar(&testColors, "test-colors", false, "show gold color palette examples for starred projects")
+	rootCmd.PersistentFlags().BoolVar(&showHistory, "history", false, "show search history with scores")
+	rootCmd.PersistentFlags().BoolVar(&clearHistory, "clear-history", false, "clear search history")
 
 	// Set up verbose mode before command execution
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {

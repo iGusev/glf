@@ -4,9 +4,10 @@ import "github.com/igusev/glf/internal/types"
 
 // DescriptionDocument represents an indexed project description
 type DescriptionDocument struct {
-	ProjectPath string // e.g., "numbuster/api/auth"
-	ProjectName string // e.g., "line-login-initiator"
+	ProjectPath string // e.g., "backend/api/auth"
+	ProjectName string // e.g., "login-service"
 	Description string // Project description
+	Starred     bool   // Whether the project is starred by the user
 }
 
 // DescriptionMatch represents a search result from description index
@@ -31,7 +32,8 @@ type CombinedMatch struct {
 	Project      types.Project
 	Snippet      string      // Description snippet if found there
 	SearchScore  float64     // Bleve relevance score
-	TotalScore   float64     // Combined score (SearchScore + HistoryScore)
+	TotalScore   float64     // Combined score (SearchScore + HistoryScore + StarredBonus)
 	HistoryScore int         // History boost (with exponential decay)
+	StarredBonus int         // Bonus for starred projects (+50 for starred)
 	Source       MatchSource // Bitflags: can be MatchSourceName | MatchSourceDescription
 }

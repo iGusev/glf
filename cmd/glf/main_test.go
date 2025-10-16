@@ -1583,7 +1583,7 @@ func TestRunAutoGoWithSync_NoMatches(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1626,7 +1626,7 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1676,7 +1676,7 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1729,7 +1729,7 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}

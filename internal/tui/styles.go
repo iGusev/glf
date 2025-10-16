@@ -29,8 +29,9 @@ type ColorScheme struct {
 	CountActive lipgloss.AdaptiveColor // Active/filtered count
 
 	// Indicators
-	Cursor   lipgloss.AdaptiveColor
-	Excluded lipgloss.AdaptiveColor
+	Cursor          lipgloss.AdaptiveColor
+	Excluded        lipgloss.AdaptiveColor
+	ExcludedStarred lipgloss.AdaptiveColor // Pale gold for excluded starred projects
 
 	// Status indicators
 	StatusActive lipgloss.AdaptiveColor // Green for loading/syncing
@@ -123,6 +124,12 @@ func NewColorScheme() *ColorScheme {
 		Excluded: lipgloss.AdaptiveColor{
 			Light: "#A3A3A3",
 			Dark:  "#5A5A5A",
+		},
+
+		// Excluded starred projects: pale gold (barely visible)
+		ExcludedStarred: lipgloss.AdaptiveColor{
+			Light: "#B8A687", // Pale gold for light backgrounds
+			Dark:  "#6B5D3F", // Muted gold for dark backgrounds
 		},
 
 		// Status active: green
@@ -246,6 +253,9 @@ func (cs *ColorScheme) GetStyles() Styles {
 		Excluded: lipgloss.NewStyle().
 			Foreground(cs.Excluded),
 
+		ExcludedStarred: lipgloss.NewStyle().
+			Foreground(cs.ExcludedStarred),
+
 		StatusActive: lipgloss.NewStyle().
 			Foreground(cs.StatusActive),
 
@@ -270,11 +280,12 @@ type Styles struct {
 	Selected     lipgloss.Style
 	Highlight    lipgloss.Style
 	Snippet      lipgloss.Style
-	Count        lipgloss.Style
-	CountActive  lipgloss.Style
-	Cursor       lipgloss.Style
-	Excluded     lipgloss.Style
-	StatusActive lipgloss.Style
+	Count           lipgloss.Style
+	CountActive     lipgloss.Style
+	Cursor          lipgloss.Style
+	Excluded        lipgloss.Style
+	ExcludedStarred lipgloss.Style
+	StatusActive    lipgloss.Style
 	StatusError  lipgloss.Style
 	StatusIdle   lipgloss.Style
 	Help         lipgloss.Style

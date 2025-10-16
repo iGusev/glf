@@ -315,8 +315,29 @@ func (m *Model) filter() {
 
 // renderMatch renders a matched project with visual indicators and optional snippet
 // Returns multiple lines if snippet is present and item is selected
-func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, query string, showScores bool) string {
+func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, excludedStarredStyle lipgloss.Style, query string, showScores bool, isExcluded bool) string {
 	var result strings.Builder
+
+	// For starred projects, use gold color (or pale gold if excluded)
+	goldColor := lipgloss.Color("#FDB515")          // California Gold (normal)
+	paleGoldColor := lipgloss.Color("#B8A687")      // Pale gold for light theme (excluded starred)
+	mutedGoldDark := lipgloss.Color("#6B5D3F")      // Muted gold for dark theme (excluded starred)
+
+	if match.Project.Starred {
+		var heartStyle lipgloss.Style
+		if isExcluded {
+			// Excluded starred: use pale gold
+			style = excludedStarredStyle
+			highlightStyle = highlightStyle.Foreground(paleGoldColor).Bold(true)
+			heartStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(paleGoldColor), Dark: string(mutedGoldDark)})
+		} else {
+			// Normal starred: use bright gold
+			style = style.Foreground(goldColor)
+			highlightStyle = highlightStyle.Foreground(goldColor).Bold(true)
+			heartStyle = lipgloss.NewStyle().Foreground(goldColor)
+		}
+		result.WriteString(heartStyle.Render("❤ "))
+	}
 
 	// Get display string
 	displayStr := match.Project.DisplayString()
@@ -332,13 +353,29 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 
 	// Add score breakdown if requested
 	if showScores {
-		scoreStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")) // Gray
-		scoreText := fmt.Sprintf(" [S:%.3f H:%d T:%.2f]",
-			match.SearchScore,
-			match.HistoryScore,
-			match.TotalScore)
-		result.WriteString(scoreStyle.Render(scoreText))
+		scoreStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")) // Gray
+		if match.Project.Starred {
+			if isExcluded {
+				scoreStyle = scoreStyle.Foreground(lipgloss.AdaptiveColor{Light: string(paleGoldColor), Dark: string(mutedGoldDark)})
+			} else {
+				scoreStyle = scoreStyle.Foreground(goldColor)
+			}
+		}
+		// Show starred bonus separately if present
+		if match.StarredBonus > 0 {
+			scoreText := fmt.Sprintf(" [S:%.3f H:%d St:%d T:%.2f]",
+				match.SearchScore,
+				match.HistoryScore,
+				match.StarredBonus,
+				match.TotalScore)
+			result.WriteString(scoreStyle.Render(scoreText))
+		} else {
+			scoreText := fmt.Sprintf(" [S:%.3f H:%d T:%.2f]",
+				match.SearchScore,
+				match.HistoryScore,
+				match.TotalScore)
+			result.WriteString(scoreStyle.Render(scoreText))
+		}
 	}
 
 	// Add snippet if available (description match) - always show if present
@@ -346,6 +383,25 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 		// Truncate snippet to 60 runes at word boundary for UTF-8 safety
 		snippet := truncateSnippet(match.Snippet, 60)
 		result.WriteString("\n") // Newline for snippet (indent handled by caller)
+
+		if match.Project.Starred {
+			// Use muted gold color for snippet if starred (to distinguish from main text)
+			if isExcluded {
+				// Excluded starred: use even more muted pale gold for snippet
+				snippetPaleGold := lipgloss.Color("#998F76")      // Very muted pale gold for light
+				snippetMutedDark := lipgloss.Color("#4A4332")     // Very muted dark gold for dark
+				snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetPaleGold), Dark: string(snippetMutedDark)})
+			} else {
+				// Normal starred: use muted gold
+				mutedGold := lipgloss.Color("#9B8B5E") // More grey-ish gold, less saturated
+				snippetStyle = snippetStyle.Foreground(mutedGold)
+			}
+		} else if isExcluded {
+			// Excluded non-starred: use even more muted gray for snippet (barely visible)
+			snippetExcludedLight := lipgloss.Color("#B8B8B8")  // Very muted gray for light
+			snippetExcludedDark := lipgloss.Color("#4A4A4A")   // Very muted gray for dark
+			snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetExcludedLight), Dark: string(snippetExcludedDark)})
+		}
 		result.WriteString(snippetStyle.Render(snippet))
 	}
 
@@ -551,7 +607,7 @@ func (m Model) View() string {
 
 		// Render project name (with visual indicators and optional snippet)
 		query := strings.TrimSpace(m.textInput.Value())
-		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, query, m.showScores)
+		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, m.styles.ExcludedStarred, query, m.showScores, isExcluded)
 
 		// Split content by lines to apply background to each line separately
 		lines := strings.Split(projectContent, "\n")

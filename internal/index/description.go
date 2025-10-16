@@ -19,7 +19,7 @@ import (
 const (
 	// IndexVersion is the current version of the index schema
 	// Increment this when making breaking changes to the index structure
-	IndexVersion = 2 // Version 2: Added Starred and GroupStarred fields
+	IndexVersion = 2 // Version 2: Added Starred field
 
 	// Version metadata document ID (reserved, never used for actual projects)
 	versionDocID = "__index_version__"
@@ -189,25 +189,18 @@ func buildIndexMapping() mapping.IndexMapping {
 	starredFieldMapping.Index = false // No need to search by this
 	descMapping.AddFieldMappingsAt("Starred", starredFieldMapping)
 
-	// GroupStarred: boolean field (not searchable, just stored)
-	groupStarredFieldMapping := bleve.NewBooleanFieldMapping()
-	groupStarredFieldMapping.Store = true
-	groupStarredFieldMapping.Index = false // No need to search by this
-	descMapping.AddFieldMappingsAt("GroupStarred", groupStarredFieldMapping)
-
 	indexMapping.DefaultMapping = descMapping
 
 	return indexMapping
 }
 
 // Add indexes a description document
-func (di *DescriptionIndex) Add(projectPath, projectName, description string, starred, groupStarred bool) error {
+func (di *DescriptionIndex) Add(projectPath, projectName, description string, starred bool) error {
 	doc := DescriptionDocument{
-		ProjectPath:  projectPath,
-		ProjectName:  projectName,
-		Description:  description,
-		Starred:      starred,
-		GroupStarred: groupStarred,
+		ProjectPath: projectPath,
+		ProjectName: projectName,
+		Description: description,
+		Starred:     starred,
 	}
 
 	return di.index.Index(projectPath, doc)
@@ -262,7 +255,7 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 
 	// Request snippets for context
 	searchRequest.Highlight = bleve.NewHighlight()
-	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred", "GroupStarred"}
+	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred"}
 
 	// Execute search
 	searchResults, err := di.index.Search(searchRequest)
@@ -289,21 +282,16 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 		if !ok {
 			starred = false
 		}
-		groupStarred, ok := hit.Fields["GroupStarred"].(bool)
-		if !ok {
-			groupStarred = false
-		}
 
 		// Extract snippet from highlight or description
 		snippet := extractSnippet(hit)
 
 		match := DescriptionMatch{
 			Project: types.Project{
-				Path:         projectPath,
-				Name:         projectName,
-				Description:  description,
-				Starred:      starred,
-				GroupStarred: groupStarred,
+				Path:        projectPath,
+				Name:        projectName,
+				Description: description,
+				Starred:     starred,
 			},
 			Score:   hit.Score,
 			Snippet: snippet,
@@ -429,7 +417,7 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 		size = math.MaxInt
 	}
 	searchRequest := bleve.NewSearchRequestOptions(query, size, 0, false)
-	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred", "GroupStarred"}
+	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred"}
 
 	// Execute search
 	searchResults, err := di.index.Search(searchRequest)
@@ -461,17 +449,12 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 		if !ok {
 			starred = false
 		}
-		groupStarred, ok := hit.Fields["GroupStarred"].(bool)
-		if !ok {
-			groupStarred = false
-		}
 
 		projects = append(projects, types.Project{
-			Path:         projectPath,
-			Name:         projectName,
-			Description:  description,
-			Starred:      starred,
-			GroupStarred: groupStarred,
+			Path:        projectPath,
+			Name:        projectName,
+			Description: description,
+			Starred:     starred,
 		})
 	}
 

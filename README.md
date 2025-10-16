@@ -15,7 +15,8 @@
 
 - ⚡ **Lightning-fast fuzzy search** with local caching
 - 🔍 **Multi-token search** - Search with spaces: `"api storage"` finds projects with both terms
-- 🧠 **Smart ranking** - Frequently selected projects automatically appear first
+- 🧠 **Smart ranking** - Combines usage history with starred favorites for intelligent results
+- ⭐ **GitLab starred integration** - Starred projects automatically rank higher (no config needed)
 - 🔁 **Auto-sync on startup** - Projects refresh in background while you search
 - 🔌 **JSON API mode** - Machine-readable output for Raycast, Alfred, and custom integrations
 - 🌍 **Cross-platform** builds for macOS, Linux, and Windows
@@ -272,7 +273,8 @@ glf --json --limit 100
       "path": "backend/api-server",
       "name": "API Server",
       "description": "REST API for authentication",
-      "url": "https://gitlab.example.com/backend/api-server"
+      "url": "https://gitlab.example.com/backend/api-server",
+      "starred": true
     }
   ],
   "total": 5,
@@ -291,7 +293,10 @@ glf --json --limit 100
       "name": "API Server",
       "description": "REST API for authentication",
       "url": "https://gitlab.example.com/backend/api-server",
-      "score": 123.45
+      "starred": true,
+      "score": 123.45,
+      "history_score": 50,
+      "starred_bonus": 50
     }
   ],
   "total": 5,
@@ -304,6 +309,7 @@ glf --json --limit 100
 When using `--scores` flag, each project includes a relevance score that combines:
 - **Search Relevance**: Fuzzy matching + full-text search score
 - **Usage History**: Frequency of previous selections (with exponential decay)
+- **Starred Bonus**: +50 for starred projects
 - **Query-Specific Boost**: 3x multiplier for projects selected with this exact query
 
 Higher scores indicate better matches. Projects are automatically sorted by score (descending).
@@ -327,13 +333,20 @@ When errors occur, GLF outputs JSON error format and exits with code 1:
 
 ### Smart Ranking
 
-GLF learns your selection patterns and automatically boosts frequently used projects:
+GLF uses multiple signals to rank projects intelligently:
 
+**Usage History:**
 - **First time**: Search `"api"` → Select `myorg/api/storage`
 - **Next time**: Search `"api"` → `myorg/api/storage` appears **first**!
 - The more you select a project, the higher it ranks
 - Query-specific boost: projects selected for specific search terms rank higher for those terms
 - Recent selections get extra boost (last 7 days)
+
+**Starred Favorites (Automatic):**
+- ⭐ **Starred projects** get +50 points boost automatically
+- Works seamlessly - just star projects in GitLab, no configuration needed
+
+**Scoring Priority:** Usage History > Starred Projects > Search Relevance
 
 History is stored in `~/.cache/glf/history.gob` and persists across sessions.
 

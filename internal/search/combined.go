@@ -36,11 +36,13 @@ func CombinedSearchWithIndex(query string, projects []types.Project, historyScor
 		}
 
 		var err error
-		descIndex, err = index.NewDescriptionIndex(indexPath)
+		descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
 		if err != nil {
 			// Failed to open index
 			return nil, fmt.Errorf("failed to open search index: %w", err)
 		}
+		// Note: recreated flag ignored here - if index was recreated, it will be empty
+		// and search will return no results, prompting user to run 'glf sync'
 		needClose = true
 	}
 
@@ -81,14 +83,21 @@ func CombinedSearchWithIndex(query string, projects []types.Project, historyScor
 			historyScore = score
 		}
 
-		// Calculate total score (search + history)
+		// Calculate starred bonus
+		starredBonus := 0
+		if fullProject.Starred {
+			starredBonus += 50
+		}
+
+		// Calculate total score (search + history + starred)
 		// History scores are already reduced by 10x in history.go
-		totalScore := match.Score + float64(historyScore)
+		totalScore := match.Score + float64(historyScore) + float64(starredBonus)
 
 		results = append(results, index.CombinedMatch{
 			Project:      fullProject,
 			SearchScore:  match.Score,
 			HistoryScore: historyScore,
+			StarredBonus: starredBonus,
 			TotalScore:   totalScore,
 			// Bleve searches all fields, so consider it as both name and description match
 			Source:  index.MatchSourceName | index.MatchSourceDescription,
@@ -115,11 +124,18 @@ func allProjectsSortedByHistory(projects []types.Project, historyScores map[stri
 			historyScore = score
 		}
 
+		// Calculate starred bonus
+		starredBonus := 0
+		if p.Starred {
+			starredBonus += 50
+		}
+
 		results[i] = index.CombinedMatch{
 			Project:      p,
 			SearchScore:  0.0, // No search for empty query
 			HistoryScore: historyScore,
-			TotalScore:   float64(historyScore),
+			StarredBonus: starredBonus,
+			TotalScore:   float64(historyScore) + float64(starredBonus),
 			Source:       index.MatchSourceName,
 			Snippet:      "",
 		}
