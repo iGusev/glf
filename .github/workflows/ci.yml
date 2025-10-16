@@ -40,15 +40,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25.x'
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-      - name: Run tests (without coverage)
-        if: matrix.os != 'ubuntu-latest' || matrix.go-version != '1.25.x'
-        run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            go test -v -race -short ./...
-          else
-            go test -v -race ./...
-          fi
-        shell: bash
+      - name: Run tests (without coverage) - Windows
+        if: (matrix.os != 'ubuntu-latest' || matrix.go-version != '1.25.x') && runner.os == 'Windows'
+        run: go test -v -race -short ./...
+
+      - name: Run tests (without coverage) - Non-Windows
+        if: (matrix.os != 'ubuntu-latest' || matrix.go-version != '1.25.x') && runner.os != 'Windows'
+        run: go test -v -race ./...
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25.x'
