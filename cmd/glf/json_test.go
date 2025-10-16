@@ -1252,6 +1252,11 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip very long query test in short mode (slow on Windows)
+			if testing.Short() && tt.name == "very long query" {
+				t.Skip("Skipping very long query test in short mode")
+			}
+
 			tempDir := t.TempDir()
 			cacheDir := filepath.Join(tempDir, "cache")
 			_ = os.MkdirAll(cacheDir, 0755)
