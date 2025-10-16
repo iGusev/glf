@@ -1214,14 +1214,15 @@ func TestIndexDescriptions_LargeBatch(t *testing.T) {
 	}
 	defer descIndex.Close()
 
-	// Check document count - should have 200 projects
+	// Check document count - should have 200 projects + 1 version document
 	docCount, err := descIndex.Count()
 	if err != nil {
 		t.Fatalf("Failed to get document count: %v", err)
 	}
 
-	if docCount != 200 {
-		t.Errorf("Expected 200 documents in index, got %d", docCount)
+	expected := uint64(201) // 200 projects + 1 version document
+	if docCount != expected {
+		t.Errorf("Expected %d documents (200 projects + 1 version), got %d", expected, docCount)
 	}
 }
 
@@ -1582,7 +1583,7 @@ func TestRunAutoGoWithSync_NoMatches(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1625,7 +1626,7 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1675,7 +1676,7 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1728,7 +1729,7 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}

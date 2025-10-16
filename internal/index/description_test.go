@@ -58,7 +58,7 @@ func TestDescriptionIndex_OpenExisting(t *testing.T) {
 	}
 
 	// Add a document
-	err = di1.Add("group/project", "Test Project", "A test description")
+	err = di1.Add("group/project", "Test Project", "A test description", false, false)
 	if err != nil {
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -76,13 +76,14 @@ func TestDescriptionIndex_OpenExisting(t *testing.T) {
 	defer di2.Close()
 
 	// Verify document still exists
+	// Note: Count includes the version document, so expect 2 (1 project + 1 version)
 	count, err := di2.Count()
 	if err != nil {
 		t.Fatalf("Failed to count documents: %v", err)
 	}
 
-	if count != 1 {
-		t.Errorf("Expected 1 document, got %d", count)
+	if count != 2 {
+		t.Errorf("Expected 2 documents (1 project + 1 version), got %d", count)
 	}
 }
 
@@ -115,21 +116,22 @@ func TestDescriptionIndex_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.projectPath, func(t *testing.T) {
-			err := di.Add(tt.projectPath, tt.projectName, tt.description)
+			err := di.Add(tt.projectPath, tt.projectName, tt.description, false, false)
 			if err != nil {
 				t.Errorf("Add() error = %v", err)
 			}
 		})
 	}
 
-	// Verify count
+	// Verify count (includes version document)
 	count, err := di.Count()
 	if err != nil {
 		t.Fatalf("Failed to count: %v", err)
 	}
 
-	if count != uint64(len(tests)) {
-		t.Errorf("Expected %d documents, got %d", len(tests), count)
+	expected := uint64(len(tests) + 1) // +1 for version document
+	if count != expected {
+		t.Errorf("Expected %d documents (%d projects + 1 version), got %d", expected, len(tests), count)
 	}
 }
 
@@ -166,14 +168,15 @@ func TestDescriptionIndex_AddBatch(t *testing.T) {
 		t.Fatalf("AddBatch() error = %v", err)
 	}
 
-	// Verify count
+	// Verify count (includes version document)
 	count, err := di.Count()
 	if err != nil {
 		t.Fatalf("Failed to count: %v", err)
 	}
 
-	if count != 3 {
-		t.Errorf("Expected 3 documents, got %d", count)
+	expected := uint64(4) // 3 projects + 1 version document
+	if count != expected {
+		t.Errorf("Expected %d documents (3 projects + 1 version), got %d", expected, count)
 	}
 }
 
@@ -372,7 +375,7 @@ func TestDescriptionIndex_Search_FuzzyMatching(t *testing.T) {
 	defer di.Close()
 
 	// Add document with "template"
-	err = di.Add("tools/template-engine", "Template Engine", "Advanced templating system")
+	err = di.Add("tools/template-engine", "Template Engine", "Advanced templating system", false, false)
 	if err != nil {
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -399,7 +402,7 @@ func TestDescriptionIndex_Search_PrefixMatching(t *testing.T) {
 	defer di.Close()
 
 	// Add document
-	err = di.Add("backend/kubernetes", "Kubernetes Deployment", "K8s deployment configuration")
+	err = di.Add("backend/kubernetes", "Kubernetes Deployment", "K8s deployment configuration", false, false)
 	if err != nil {
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -441,10 +444,11 @@ func TestDescriptionIndex_Delete(t *testing.T) {
 		t.Fatalf("Failed to add batch: %v", err)
 	}
 
-	// Verify initial count
+	// Verify initial count (includes version document)
 	count, _ := di.Count()
-	if count != 2 {
-		t.Fatalf("Expected 2 documents, got %d", count)
+	expected := uint64(3) // 2 projects + 1 version document
+	if count != expected {
+		t.Fatalf("Expected %d documents (2 projects + 1 version), got %d", expected, count)
 	}
 
 	// Delete one document
@@ -453,10 +457,11 @@ func TestDescriptionIndex_Delete(t *testing.T) {
 		t.Fatalf("Delete() error = %v", err)
 	}
 
-	// Verify count decreased
+	// Verify count decreased (still includes version document)
 	count, _ = di.Count()
-	if count != 1 {
-		t.Errorf("Expected 1 document after delete, got %d", count)
+	expected = uint64(2) // 1 project + 1 version document
+	if count != expected {
+		t.Errorf("Expected %d documents (1 project + 1 version) after delete, got %d", expected, count)
 	}
 
 	// Verify correct document was deleted by searching for specific path
@@ -491,18 +496,18 @@ func TestDescriptionIndex_Count(t *testing.T) {
 	}
 	defer di.Close()
 
-	// Initially empty
+	// Initially contains only version document
 	count, err := di.Count()
 	if err != nil {
 		t.Fatalf("Count() error = %v", err)
 	}
-	if count != 0 {
-		t.Errorf("Expected count 0, got %d", count)
+	if count != 1 {
+		t.Errorf("Expected count 1 (version document only), got %d", count)
 	}
 
 	// Add documents
 	for i := 1; i <= 5; i++ {
-		err = di.Add("project"+string(rune('0'+i)), "P", "D")
+		err = di.Add("project"+string(rune('0'+i)), "P", "D", false, false)
 		if err != nil {
 			t.Fatalf("Failed to add document: %v", err)
 		}
@@ -512,8 +517,9 @@ func TestDescriptionIndex_Count(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Count() error = %v", err)
 	}
-	if count != 5 {
-		t.Errorf("Expected count 5, got %d", count)
+	expected := uint64(6) // 5 projects + 1 version document
+	if count != expected {
+		t.Errorf("Expected count %d (5 projects + 1 version), got %d", expected, count)
 	}
 }
 
@@ -550,13 +556,13 @@ func TestDescriptionIndex_GetAllProjects(t *testing.T) {
 	}
 	defer di.Close()
 
-	// Test empty index
+	// Test empty index (version document should be filtered out)
 	projects, err := di.GetAllProjects()
 	if err != nil {
 		t.Fatalf("GetAllProjects() error = %v", err)
 	}
 	if len(projects) != 0 {
-		t.Errorf("Expected 0 projects in empty index, got %d", len(projects))
+		t.Errorf("Expected 0 projects in empty index (version doc filtered), got %d", len(projects))
 	}
 
 	// Add documents
@@ -571,14 +577,14 @@ func TestDescriptionIndex_GetAllProjects(t *testing.T) {
 		t.Fatalf("Failed to add batch: %v", err)
 	}
 
-	// Get all projects
+	// Get all projects (version document should be filtered out)
 	projects, err = di.GetAllProjects()
 	if err != nil {
 		t.Fatalf("GetAllProjects() error = %v", err)
 	}
 
 	if len(projects) != 3 {
-		t.Errorf("Expected 3 projects, got %d", len(projects))
+		t.Errorf("Expected 3 projects (version doc filtered), got %d", len(projects))
 	}
 
 	// Verify projects have correct data

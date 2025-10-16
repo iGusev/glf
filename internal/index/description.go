@@ -2,6 +2,7 @@
 package index
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -15,13 +16,31 @@ import (
 	"github.com/igusev/glf/internal/types"
 )
 
+const (
+	// IndexVersion is the current version of the index schema
+	// Increment this when making breaking changes to the index structure
+	IndexVersion = 2 // Version 2: Added Starred and GroupStarred fields
+
+	// Version metadata document ID (reserved, never used for actual projects)
+	versionDocID = "__index_version__"
+)
+
+// ErrIndexVersionMismatch indicates the index schema version is incompatible
+var ErrIndexVersionMismatch = errors.New("index version mismatch")
+
 // DescriptionIndex manages the bleve index for project descriptions
 type DescriptionIndex struct {
 	index bleve.Index
 	path  string
 }
 
+// versionDocument stores the index schema version
+type versionDocument struct {
+	Version int `json:"version"`
+}
+
 // NewDescriptionIndex creates or opens a description index
+// Returns ErrIndexVersionMismatch if existing index has incompatible version
 func NewDescriptionIndex(indexPath string) (*DescriptionIndex, error) {
 	var index bleve.Index
 	var err error
@@ -34,11 +53,46 @@ func NewDescriptionIndex(indexPath string) (*DescriptionIndex, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create index: %w", err)
 		}
+
+		// Store version in new index
+		versionDoc := versionDocument{Version: IndexVersion}
+		if err := index.Index(versionDocID, versionDoc); err != nil {
+			index.Close()
+			return nil, fmt.Errorf("failed to store index version: %w", err)
+		}
 	} else {
 		// Open existing index
 		index, err = bleve.Open(indexPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open index: %w", err)
+		}
+
+		// Check version compatibility by searching for version document
+		searchReq := bleve.NewSearchRequest(bleve.NewDocIDQuery([]string{versionDocID}))
+		searchReq.Fields = []string{"version"}
+		searchRes, err := index.Search(searchReq)
+		if err != nil || len(searchRes.Hits) == 0 {
+			// Old index without version metadata (version 1)
+			index.Close()
+			return nil, fmt.Errorf("%w: index created before versioning was added", ErrIndexVersionMismatch)
+		}
+
+		// Extract version number from search result
+		storedVersion := 0
+		if versionField, ok := searchRes.Hits[0].Fields["version"].(float64); ok {
+			storedVersion = int(versionField)
+		}
+
+		if storedVersion == 0 {
+			// Couldn't determine version - assume old
+			index.Close()
+			return nil, fmt.Errorf("%w: could not determine index version", ErrIndexVersionMismatch)
+		}
+
+		if storedVersion != IndexVersion {
+			index.Close()
+			return nil, fmt.Errorf("%w: index version %d, current version %d",
+				ErrIndexVersionMismatch, storedVersion, IndexVersion)
 		}
 	}
 
@@ -129,17 +183,31 @@ func buildIndexMapping() mapping.IndexMapping {
 	descriptionFieldMapping.IncludeTermVectors = true // For better snippet highlighting
 	descMapping.AddFieldMappingsAt("Description", descriptionFieldMapping)
 
+	// Starred: boolean field (not searchable, just stored)
+	starredFieldMapping := bleve.NewBooleanFieldMapping()
+	starredFieldMapping.Store = true
+	starredFieldMapping.Index = false // No need to search by this
+	descMapping.AddFieldMappingsAt("Starred", starredFieldMapping)
+
+	// GroupStarred: boolean field (not searchable, just stored)
+	groupStarredFieldMapping := bleve.NewBooleanFieldMapping()
+	groupStarredFieldMapping.Store = true
+	groupStarredFieldMapping.Index = false // No need to search by this
+	descMapping.AddFieldMappingsAt("GroupStarred", groupStarredFieldMapping)
+
 	indexMapping.DefaultMapping = descMapping
 
 	return indexMapping
 }
 
 // Add indexes a description document
-func (di *DescriptionIndex) Add(projectPath, projectName, description string) error {
+func (di *DescriptionIndex) Add(projectPath, projectName, description string, starred, groupStarred bool) error {
 	doc := DescriptionDocument{
-		ProjectPath: projectPath,
-		ProjectName: projectName,
-		Description: description,
+		ProjectPath:  projectPath,
+		ProjectName:  projectName,
+		Description:  description,
+		Starred:      starred,
+		GroupStarred: groupStarred,
 	}
 
 	return di.index.Index(projectPath, doc)
@@ -194,7 +262,7 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 
 	// Request snippets for context
 	searchRequest.Highlight = bleve.NewHighlight()
-	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description"}
+	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred", "GroupStarred"}
 
 	// Execute search
 	searchResults, err := di.index.Search(searchRequest)
@@ -217,15 +285,25 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 		if !ok {
 			description = ""
 		}
+		starred, ok := hit.Fields["Starred"].(bool)
+		if !ok {
+			starred = false
+		}
+		groupStarred, ok := hit.Fields["GroupStarred"].(bool)
+		if !ok {
+			groupStarred = false
+		}
 
 		// Extract snippet from highlight or description
 		snippet := extractSnippet(hit)
 
 		match := DescriptionMatch{
 			Project: types.Project{
-				Path:        projectPath,
-				Name:        projectName,
-				Description: description,
+				Path:         projectPath,
+				Name:         projectName,
+				Description:  description,
+				Starred:      starred,
+				GroupStarred: groupStarred,
 			},
 			Score:   hit.Score,
 			Snippet: snippet,
@@ -299,6 +377,36 @@ func Exists(indexPath string) bool {
 	return !os.IsNotExist(err)
 }
 
+// NewDescriptionIndexWithAutoRecreate creates or opens a description index
+// Automatically recreates the index if version mismatch is detected
+func NewDescriptionIndexWithAutoRecreate(indexPath string) (*DescriptionIndex, bool, error) {
+	descIndex, err := NewDescriptionIndex(indexPath)
+	if err != nil {
+		// Check if this is a version mismatch error
+		if errors.Is(err, ErrIndexVersionMismatch) {
+			// Delete old index
+			if err := os.RemoveAll(indexPath); err != nil {
+				return nil, false, fmt.Errorf("failed to remove old index: %w", err)
+			}
+
+			// Create new index with current version
+			descIndex, err = NewDescriptionIndex(indexPath)
+			if err != nil {
+				return nil, false, fmt.Errorf("failed to create new index after version mismatch: %w", err)
+			}
+
+			// Return with recreated flag = true
+			return descIndex, true, nil
+		}
+
+		// Other error - propagate
+		return nil, false, err
+	}
+
+	// Successfully opened existing index
+	return descIndex, false, nil
+}
+
 // GetAllProjects retrieves all projects from the index
 // Returns all indexed projects (no pagination)
 func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
@@ -321,7 +429,7 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 		size = math.MaxInt
 	}
 	searchRequest := bleve.NewSearchRequestOptions(query, size, 0, false)
-	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description"}
+	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred", "GroupStarred"}
 
 	// Execute search
 	searchResults, err := di.index.Search(searchRequest)
@@ -329,9 +437,14 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
-	// Convert results to Project slice
+	// Convert results to Project slice (filtering out version document)
 	projects := make([]types.Project, 0, len(searchResults.Hits))
 	for _, hit := range searchResults.Hits {
+		// Skip version document (it has ID __index_version__ and no ProjectPath)
+		if hit.ID == versionDocID {
+			continue
+		}
+
 		projectPath, ok := hit.Fields["ProjectPath"].(string)
 		if !ok {
 			projectPath = ""
@@ -344,11 +457,21 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 		if !ok {
 			description = ""
 		}
+		starred, ok := hit.Fields["Starred"].(bool)
+		if !ok {
+			starred = false
+		}
+		groupStarred, ok := hit.Fields["GroupStarred"].(bool)
+		if !ok {
+			groupStarred = false
+		}
 
 		projects = append(projects, types.Project{
-			Path:        projectPath,
-			Name:        projectName,
-			Description: description,
+			Path:         projectPath,
+			Name:         projectName,
+			Description:  description,
+			Starred:      starred,
+			GroupStarred: groupStarred,
 		})
 	}
 
