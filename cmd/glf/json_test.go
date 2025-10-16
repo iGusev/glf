@@ -307,32 +307,32 @@ func TestRunJSONMode_URLConstruction(t *testing.T) {
 
 	// Test different GitLab URL formats
 	tests := []struct {
-		name       string
-		gitlabURL  string
+		name        string
+		gitlabURL   string
 		projectPath string
 		expectedURL string
 	}{
 		{
-			name:       "simple URL",
-			gitlabURL:  "https://gitlab.com",
+			name:        "simple URL",
+			gitlabURL:   "https://gitlab.com",
 			projectPath: "user/project",
 			expectedURL: "https://gitlab.com/user/project",
 		},
 		{
-			name:       "URL with port",
-			gitlabURL:  "https://gitlab.company.com:8443",
+			name:        "URL with port",
+			gitlabURL:   "https://gitlab.company.com:8443",
 			projectPath: "group/project",
 			expectedURL: "https://gitlab.company.com:8443/group/project",
 		},
 		{
-			name:       "URL with trailing slash",
-			gitlabURL:  "https://gitlab.com/",
+			name:        "URL with trailing slash",
+			gitlabURL:   "https://gitlab.com/",
 			projectPath: "user/project",
 			expectedURL: "https://gitlab.com/user/project",
 		},
 		{
-			name:       "project path with leading slash",
-			gitlabURL:  "https://gitlab.com",
+			name:        "project path with leading slash",
+			gitlabURL:   "https://gitlab.com",
 			projectPath: "/user/project",
 			expectedURL: "https://gitlab.com/user/project",
 		},
@@ -403,11 +403,11 @@ func TestRunJSONMode_URLConstruction(t *testing.T) {
 // TestRunJSONMode_LimitEdgeCases tests various limit boundary conditions
 func TestRunJSONMode_LimitEdgeCases(t *testing.T) {
 	tests := []struct {
-		name           string
-		limit          int
-		totalProjects  int
-		expectedCount  int
-		expectedTotal  int
+		name          string
+		limit         int
+		totalProjects int
+		expectedCount int
+		expectedTotal int
 	}{
 		{
 			name:          "limit zero returns all",

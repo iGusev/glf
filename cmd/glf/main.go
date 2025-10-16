@@ -52,19 +52,19 @@ const (
 type (
 	// JSONSearchResult represents the complete search response in JSON mode
 	JSONSearchResult struct {
-		Query   string        `json:"query"`            // Search query that was executed
-		Results []JSONProject `json:"results"`          // Matching projects
-		Total   int           `json:"total"`            // Total number of results
-		Limit   int           `json:"limit"`            // Maximum results returned
+		Query   string        `json:"query"`   // Search query that was executed
+		Results []JSONProject `json:"results"` // Matching projects
+		Total   int           `json:"total"`   // Total number of results
+		Limit   int           `json:"limit"`   // Maximum results returned
 	}
 
 	// JSONProject represents a single project in JSON output
 	JSONProject struct {
-		Path        string  `json:"path"`                  // Project path (e.g., "group/project")
-		Name        string  `json:"name"`                  // Project name
-		Description string  `json:"description"`           // Project description
-		URL         string  `json:"url"`                   // Full project URL
-		Score       float64 `json:"score,omitempty"`       // Relevance score (optional, with --scores)
+		Path        string  `json:"path"`            // Project path (e.g., "group/project")
+		Name        string  `json:"name"`            // Project name
+		Description string  `json:"description"`     // Project description
+		URL         string  `json:"url"`             // Full project URL
+		Score       float64 `json:"score,omitempty"` // Relevance score (optional, with --scores)
 	}
 
 	// JSONError represents an error response in JSON mode
