@@ -1631,10 +1631,10 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 		t.Fatalf("Failed to add document: %v", err)
 	}
 
-	// Mock sync function that succeeds
-	syncCalled := false
+	// Mock sync function that succeeds with channel for synchronization
+	syncDone := make(chan bool, 1)
 	mockSync := func() error {
-		syncCalled = true
+		defer func() { syncDone <- true }()
 		return nil
 	}
 
@@ -1647,9 +1647,12 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 		t.Errorf("runAutoGoWithSync failed: %v", err)
 	}
 
-	// Verify sync was called
-	if !syncCalled {
-		t.Error("Background sync was not called")
+	// Wait for background sync to complete (with timeout)
+	select {
+	case <-syncDone:
+		// Sync completed successfully
+	case <-time.After(1 * time.Second):
+		t.Error("Background sync was not called within timeout")
 	}
 }
 
@@ -1681,10 +1684,10 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 		t.Fatalf("Failed to add document: %v", err)
 	}
 
-	// Mock sync function that fails
-	syncCalled := false
+	// Mock sync function that fails with channel for synchronization
+	syncDone := make(chan bool, 1)
 	mockSync := func() error {
-		syncCalled = true
+		defer func() { syncDone <- true }()
 		return fmt.Errorf("sync failed: network timeout")
 	}
 
@@ -1697,9 +1700,12 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 		t.Errorf("runAutoGoWithSync should succeed even if sync fails, got: %v", err)
 	}
 
-	// Verify sync was called
-	if !syncCalled {
-		t.Error("Background sync was not called")
+	// Wait for background sync to complete (with timeout)
+	select {
+	case <-syncDone:
+		// Sync completed (even with error)
+	case <-time.After(1 * time.Second):
+		t.Error("Background sync was not called within timeout")
 	}
 }
 
@@ -1737,9 +1743,9 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 	// Note: We can't easily test the actual 30-second timeout without making the test slow
 	// But we can verify the code path exists by using a fast sync function
 	// The timeout logic is covered by the code structure
-	syncCalled := false
+	syncDone := make(chan bool, 1)
 	mockSync := func() error {
-		syncCalled = true
+		defer func() { syncDone <- true }()
 		// Fast return to avoid slow test
 		return nil
 	}
@@ -1751,8 +1757,12 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 		t.Errorf("runAutoGoWithSync failed: %v", err)
 	}
 
-	if !syncCalled {
-		t.Error("Background sync was not called")
+	// Wait for background sync to complete (with timeout)
+	select {
+	case <-syncDone:
+		// Sync completed successfully
+	case <-time.After(1 * time.Second):
+		t.Error("Background sync was not called within timeout")
 	}
 }
 

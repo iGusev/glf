@@ -417,30 +417,20 @@ func runAutoGoWithSync(projects []types.Project, query string, cfg *config.Confi
 		logger.Debug("Browser command executed successfully")
 	}
 
-	// Start background sync to update cache for next time
-	// User already has browser open, so sync happens in background
-	logger.Debug("Starting background sync...")
-	syncDone := make(chan error, 1)
-	go func() {
-		syncDone <- syncFunc()
-	}()
+	// Output URL immediately (don't wait for sync)
+	fmt.Println(projectURL)
 
-	// Wait for sync completion or timeout
-	// 30 seconds should be enough for incremental sync
-	// Full sync may take longer, but that's OK - it will be interrupted
-	select {
-	case err := <-syncDone:
-		if err != nil {
+	// Start background sync to update cache for next time
+	// User already has browser open, so sync happens completely in background
+	// No waiting - auto-go mode prioritizes speed over cache freshness
+	logger.Debug("Starting background sync...")
+	go func() {
+		if err := syncFunc(); err != nil {
 			logger.Debug("Background sync failed: %v", err)
 		} else {
 			logger.Debug("Background sync completed successfully")
 		}
-	case <-time.After(30 * time.Second):
-		logger.Debug("Background sync timeout (continuing in background)")
-	}
-
-	// Output URL (after sync completes or times out)
-	fmt.Println(projectURL)
+	}()
 
 	return nil
 }
