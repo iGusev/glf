@@ -288,18 +288,20 @@ cache:
 }
 
 func TestRunSearch_IndexNotFound(t *testing.T) {
-	// Test that runSearch fails gracefully when index doesn't exist
+	// Test that runSearch detects missing index and attempts first-run sync
 	tempDir := t.TempDir()
 	configDir := filepath.Join(tempDir, ".config", "glf")
+	cacheDir := filepath.Join(tempDir, "cache")
 	_ = os.MkdirAll(configDir, 0755)
+	_ = os.MkdirAll(cacheDir, 0755)
 
-	// Create minimal config
+	// Create minimal config with invalid URL so sync will fail
 	configPath := filepath.Join(configDir, "config.yaml")
 	configContent := `gitlab:
   url: https://gitlab.example.com
   token: test-token
 cache:
-  dir: ` + filepath.Join(tempDir, "cache")
+  dir: ` + cacheDir
 	_ = os.WriteFile(configPath, []byte(configContent), 0600)
 
 	// Set HOME to temp directory
@@ -307,20 +309,21 @@ cache:
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", oldHome)
 
-	// Disable auto-go and sync modes
+	// Disable auto-go mode (sync will still be triggered automatically for first run)
 	autoGo = false
 	doSync = false
 
 	// Create empty command
 	cmd := &cobra.Command{}
 
-	// Try to run without index - should fail
+	// Try to run without index - should trigger first-run sync which will fail
 	err := runSearch(cmd, []string{"test"})
 	if err == nil {
-		t.Error("Expected error for missing index, got nil")
+		t.Error("Expected error for missing index with failed sync, got nil")
 	}
-	if err != nil && err.Error() != "index not found, run 'glf --sync' first" {
-		t.Errorf("Expected 'index not found' error, got: %v", err)
+	// Should get sync error (connection will fail because gitlab.example.com doesn't exist)
+	if err != nil && !contains(err.Error(), "sync failed") {
+		t.Errorf("Expected 'sync failed' error, got: %v", err)
 	}
 }
 
