@@ -3,22 +3,22 @@ package main
 import (
 	"time"
 
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 // mockGitLabClient is a mock implementation of gitlab.GitLabClient for testing
 type mockGitLabClient struct {
-	fetchProjectsFunc  func(*time.Time) ([]types.Project, error)
+	fetchProjectsFunc  func(*time.Time) ([]model.Project, error)
 	testConnectionFunc func() error
 	getUsernameFunc    func() (string, error)
 }
 
 // FetchAllProjects calls the mock function if set, otherwise returns empty list
-func (m *mockGitLabClient) FetchAllProjects(since *time.Time) ([]types.Project, error) {
+func (m *mockGitLabClient) FetchAllProjects(since *time.Time) ([]model.Project, error) {
 	if m.fetchProjectsFunc != nil {
 		return m.fetchProjectsFunc(since)
 	}
-	return []types.Project{}, nil
+	return []model.Project{}, nil
 }
 
 // TestConnection calls the mock function if set, otherwise returns nil

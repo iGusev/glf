@@ -13,7 +13,7 @@ import (
 	"github.com/igusev/glf/internal/history"
 	"github.com/igusev/glf/internal/index"
 	"github.com/igusev/glf/internal/search"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 // SyncStartMsg is sent when sync starts
@@ -22,7 +22,7 @@ type SyncStartMsg struct{}
 // SyncCompleteMsg is sent when sync completes
 type SyncCompleteMsg struct {
 	Err      error
-	Projects []types.Project
+	Projects []model.Project
 }
 
 // HistoryLoadedMsg is sent when history finishes loading
@@ -34,7 +34,7 @@ type HistoryLoadedMsg struct {
 type Model struct {
 	textInput      textinput.Model       // Search input field
 	styles         Styles                // Pre-configured styles
-	projects       []types.Project       // All projects (full list)
+	projects       []model.Project       // All projects (full list)
 	filtered       []index.CombinedMatch // Filtered projects with match data (fuzzy + description)
 	selected       string                // Selected project path (when user presses Enter)
 	cacheDir       string                // Cache directory for description index
@@ -59,7 +59,7 @@ type Model struct {
 }
 
 // New creates a new TUI model with the given projects and optional initial query
-func New(projects []types.Project, initialQuery string, onSync func() tea.Cmd, cacheDir string, cfg *config.Config, showScores bool, username string, version string) Model {
+func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, cacheDir string, cfg *config.Config, showScores bool, username string, version string) Model {
 	// Initialize color scheme
 	colorScheme := NewColorScheme()
 	styles := colorScheme.GetStyles()

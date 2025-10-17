@@ -10,7 +10,7 @@ import (
 	"github.com/igusev/glf/internal/config"
 	"github.com/igusev/glf/internal/history"
 	"github.com/igusev/glf/internal/index"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 // TestOutputJSON tests JSON encoding function
@@ -69,7 +69,7 @@ func TestRunJSONMode_WithQuery(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 		{Path: "frontend/app", Name: "Frontend App", Description: "React application"},
 	}
@@ -158,7 +158,7 @@ func TestRunJSONMode_WithoutQuery(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API"},
 		{Path: "frontend/app", Name: "Frontend App", Description: "React app"},
 		{Path: "devops/tools", Name: "DevOps Tools", Description: "CI/CD tools"},
@@ -235,7 +235,7 @@ func TestRunJSONMode_WithScores(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 	}
 
@@ -345,7 +345,7 @@ func TestRunJSONMode_URLConstruction(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: tt.projectPath, Name: "Test Project", Description: "Test"},
 			}
 
@@ -465,9 +465,9 @@ func TestRunJSONMode_LimitEdgeCases(t *testing.T) {
 			}
 
 			// Generate projects
-			projects := make([]types.Project, tt.totalProjects)
+			projects := make([]model.Project, tt.totalProjects)
 			for i := 0; i < tt.totalProjects; i++ {
-				projects[i] = types.Project{
+				projects[i] = model.Project{
 					Path:        filepath.Join("group", "project"+string(rune('A'+i))),
 					Name:        "Project " + string(rune('A'+i)),
 					Description: "Test project",
@@ -552,7 +552,7 @@ func TestRunJSONMode_SpecialCharacters(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: "test/project", Name: "Test", Description: tt.query},
 			}
 
@@ -623,7 +623,7 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 	}
 
 	// Create projects that won't match
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 		{Path: "frontend/app", Name: "Frontend", Description: "React application"},
 		{Path: "devops/ci", Name: "DevOps", Description: "CI/CD pipeline"},
@@ -705,9 +705,9 @@ func TestRunJSONMode_LargeResultSet(t *testing.T) {
 
 	// Generate 30 projects (enough to test limit=20)
 	const totalProjects = 30
-	projects := make([]types.Project, totalProjects)
+	projects := make([]model.Project, totalProjects)
 	for i := 0; i < totalProjects; i++ {
-		projects[i] = types.Project{
+		projects[i] = model.Project{
 			Path:        filepath.Join("group", "project", "subproject"+string(rune('0'+i%10)), "item"+string(rune('A'+i/10))),
 			Name:        "Project " + string(rune('A'+i/26)) + string(rune('A'+i%26)),
 			Description: "Test project number " + string(rune('0'+i%10)),
@@ -779,7 +779,7 @@ func TestRunJSONMode_HistoryLoadError(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: cacheDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project", Name: "Test", Description: "Test project"},
 	}
 
@@ -851,7 +851,7 @@ func TestRunJSONMode_MultiTokenQuery(t *testing.T) {
 	}
 
 	// Create projects with varying matches
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api-gateway", Name: "API Gateway", Description: "Gateway service for APIs"},
 		{Path: "backend/service", Name: "Backend Service", Description: "Core backend logic"},
 		{Path: "backend/api-core", Name: "API Backend Core", Description: "Core API backend service"},
@@ -952,7 +952,7 @@ func TestRunJSONMode_ProjectPathEdgeCases(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: tt.projectPath, Name: "Test Project", Description: tt.description},
 			}
 
@@ -1022,7 +1022,7 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: cacheDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api-server", Name: "API Server", Description: "REST API backend"},
 		{Path: "backend/worker", Name: "Worker", Description: "Background jobs"},
 	}
@@ -1126,7 +1126,7 @@ func TestRunJSONMode_ScoreOrdering(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: cacheDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project/alpha", Name: "Alpha", Description: "API service alpha"},
 		{Path: "project/beta", Name: "Beta", Description: "API service beta"},
 		{Path: "project/gamma", Name: "Gamma", Description: "API service gamma"},
@@ -1266,7 +1266,7 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: "backend/api", Name: "API Backend", Description: "REST API backend service"},
 			}
 
@@ -1358,7 +1358,7 @@ func TestRunJSONMode_JSONStructureValidation(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: "test/project", Name: "Test", Description: tt.description},
 			}
 
@@ -1425,9 +1425,9 @@ func TestRunJSONMode_VeryLargeDataset(t *testing.T) {
 
 	// Generate 1000 projects
 	const totalProjects = 1000
-	projects := make([]types.Project, totalProjects)
+	projects := make([]model.Project, totalProjects)
 	for i := 0; i < totalProjects; i++ {
-		projects[i] = types.Project{
+		projects[i] = model.Project{
 			Path:        filepath.Join("group", "subgroup", "project"+string(rune('0'+i%100))),
 			Name:        "Project " + string(rune('A'+i%26)),
 			Description: "Description " + string(rune('0'+i%10)),
@@ -1516,7 +1516,7 @@ func TestRunJSONMode_SecurityValidation(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: "test/project", Name: "Test", Description: "Safe description"},
 			}
 
@@ -1599,7 +1599,7 @@ func TestRunJSONMode_UTF8EdgeCases(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []types.Project{
+			projects := []model.Project{
 				{Path: "test/project", Name: "Test", Description: tt.query},
 			}
 
@@ -1675,9 +1675,9 @@ func TestRunJSONMode_PerformanceBenchmark(t *testing.T) {
 
 	// Generate 100 projects for benchmark
 	const totalProjects = 100
-	projects := make([]types.Project, totalProjects)
+	projects := make([]model.Project, totalProjects)
 	for i := 0; i < totalProjects; i++ {
-		projects[i] = types.Project{
+		projects[i] = model.Project{
 			Path:        filepath.Join("group", "project"+string(rune('A'+i%26))),
 			Name:        "Project " + string(rune('A'+i%26)),
 			Description: "API backend service number " + string(rune('0'+i%10)),

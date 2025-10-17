@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/igusev/glf/internal/index"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 func TestAllProjectsSortedByHistory(t *testing.T) {
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 		{Path: "project-b", Name: "Project B"},
 		{Path: "project-c", Name: "Project C"},
@@ -62,7 +62,7 @@ func TestAllProjectsSortedByHistory(t *testing.T) {
 }
 
 func TestAllProjectsSortedByHistory_EmptyHistory(t *testing.T) {
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 		{Path: "project-b", Name: "Project B"},
 	}
@@ -83,7 +83,7 @@ func TestAllProjectsSortedByHistory_EmptyHistory(t *testing.T) {
 }
 
 func TestAllProjectsSortedByHistory_EmptyProjects(t *testing.T) {
-	projects := []types.Project{}
+	projects := []model.Project{}
 	historyScores := map[string]int{}
 
 	results := allProjectsSortedByHistory(projects, historyScores)
@@ -94,7 +94,7 @@ func TestAllProjectsSortedByHistory_EmptyProjects(t *testing.T) {
 }
 
 func TestCombinedSearch_EmptyQuery(t *testing.T) {
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "high-history", Name: "High History"},
 		{Path: "low-history", Name: "Low History"},
 	}
@@ -133,7 +133,7 @@ func TestCombinedSearch_IndexNotFound(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 	}
 
@@ -152,7 +152,7 @@ func TestCombinedSearch_IndexNotFound(t *testing.T) {
 }
 
 func TestCombinedSearchWithIndex_EmptyQuery(t *testing.T) {
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-1", Name: "First"},
 		{Path: "project-2", Name: "Second"},
 	}
@@ -181,7 +181,7 @@ func TestCombinedSearchWithIndex_NilIndexNonEmptyQuery(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 	}
 
@@ -239,7 +239,7 @@ func TestCombinedSearch_Integration(t *testing.T) {
 		t.Fatalf("Failed to add test docs: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/auth", Name: "Authentication API", Description: "User authentication and authorization service"},
 		{Path: "api/payment", Name: "Payment Gateway", Description: "Payment processing and billing"},
 		{Path: "frontend/dashboard", Name: "Admin Dashboard", Description: "Administrative interface for user management"},
@@ -284,7 +284,7 @@ func TestCombinedSearch_Integration(t *testing.T) {
 
 func TestScoreCalculation(t *testing.T) {
 	// Test that score calculation logic is correct
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 		{Path: "project-b", Name: "Project B"},
 	}
@@ -308,7 +308,7 @@ func TestScoreCalculation(t *testing.T) {
 
 func TestProjectOrdering_StableSort(t *testing.T) {
 	// Test that projects with same score maintain stable order
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "A"},
 		{Path: "project-b", Name: "B"},
 		{Path: "project-c", Name: "C"},
@@ -364,7 +364,7 @@ func TestCombinedSearchWithIndex_CyrillicQuery(t *testing.T) {
 		t.Fatalf("Failed to add test docs: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/авторизация", Name: "Сервис авторизации", Description: "Аутентификация пользователей"},
 		{Path: "api/платежи", Name: "Платежный шлюз", Description: "Обработка платежей"},
 	}
@@ -421,7 +421,7 @@ func TestCombinedSearchWithIndex_MultiWordQuery(t *testing.T) {
 		t.Fatalf("Failed to add test docs: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/user-service", Name: "User Management Service", Description: "Manage user accounts and profiles"},
 		{Path: "api/payment-service", Name: "Payment Service", Description: "Process payments and transactions"},
 	}
@@ -479,7 +479,7 @@ func TestCombinedSearchWithIndex_ProjectNotInMap(t *testing.T) {
 	}
 
 	// Only provide active project (simulate deleted project)
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/active", Name: "Active Project", Description: "This project exists"},
 	}
 
@@ -534,7 +534,7 @@ func TestCombinedSearchWithIndex_HistoryBoostIntegration(t *testing.T) {
 		t.Fatalf("Failed to add test docs: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/service-a", Name: "Service A", Description: "API service for data"},
 		{Path: "api/service-b", Name: "Service B", Description: "API service for data"},
 	}
@@ -601,7 +601,7 @@ func TestCombinedSearchWithIndex_SnippetGeneration(t *testing.T) {
 		t.Fatalf("Failed to add test docs: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/search-service", Name: "Search API", Description: testDocs[0].Description},
 	}
 
@@ -638,7 +638,7 @@ func TestCombinedSearchWithIndex_IndexOpenError(t *testing.T) {
 		t.Fatalf("Failed to create file: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 	}
 
@@ -676,7 +676,7 @@ func TestCombinedSearchWithIndex_SearchError(t *testing.T) {
 	// Close the index to cause search to fail
 	descIndex.Close()
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "project-a", Name: "Project A"},
 	}
 
@@ -722,7 +722,7 @@ func TestCombinedSearchWithIndex_EmptyResults(t *testing.T) {
 		t.Fatalf("Failed to add test docs: %v", err)
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/service", Name: "Service", Description: "A service"},
 	}
 
@@ -785,7 +785,7 @@ func TestCombinedSearchWithIndex_OpensAndClosesIndex(t *testing.T) {
 	}
 	descIndex.Close() // Close it so the function can open it
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "api/test", Name: "Test Project", Description: "Test description"},
 	}
 

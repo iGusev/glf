@@ -7,18 +7,18 @@ import (
 	"sort"
 
 	"github.com/igusev/glf/internal/index"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 // CombinedSearch performs unified search using Bleve across project names, paths, and descriptions
 // For empty queries, returns all projects sorted by history
 // If descIndex is provided, it will be used; otherwise a new index will be opened
-func CombinedSearch(query string, projects []types.Project, historyScores map[string]int, cacheDir string) ([]index.CombinedMatch, error) {
+func CombinedSearch(query string, projects []model.Project, historyScores map[string]int, cacheDir string) ([]index.CombinedMatch, error) {
 	return CombinedSearchWithIndex(query, projects, historyScores, cacheDir, nil)
 }
 
 // CombinedSearchWithIndex is like CombinedSearch but accepts an already-open index
-func CombinedSearchWithIndex(query string, projects []types.Project, historyScores map[string]int, cacheDir string, descIndex *index.DescriptionIndex) ([]index.CombinedMatch, error) {
+func CombinedSearchWithIndex(query string, projects []model.Project, historyScores map[string]int, cacheDir string, descIndex *index.DescriptionIndex) ([]index.CombinedMatch, error) {
 	if query == "" {
 		// Empty query: return all projects sorted by history
 		return allProjectsSortedByHistory(projects, historyScores), nil
@@ -63,7 +63,7 @@ func CombinedSearchWithIndex(query string, projects []types.Project, historyScor
 	}
 
 	// Create project lookup map to get full project details
-	projectMap := make(map[string]types.Project)
+	projectMap := make(map[string]model.Project)
 	for _, p := range projects {
 		projectMap[p.Path] = p
 	}
@@ -115,7 +115,7 @@ func CombinedSearchWithIndex(query string, projects []types.Project, historyScor
 
 // allProjectsSortedByHistory returns all projects sorted by history scores
 // Used for empty queries to show recently/frequently used projects first
-func allProjectsSortedByHistory(projects []types.Project, historyScores map[string]int) []index.CombinedMatch {
+func allProjectsSortedByHistory(projects []model.Project, historyScores map[string]int) []index.CombinedMatch {
 	results := make([]index.CombinedMatch, len(projects))
 
 	for i, p := range projects {

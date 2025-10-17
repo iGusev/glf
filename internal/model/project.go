@@ -1,5 +1,5 @@
-// Package types defines core data structures for GitLab projects
-package types
+// Package model defines core data structures for GitLab projects
+package model
 
 import "strings"
 

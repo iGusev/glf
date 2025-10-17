@@ -22,7 +22,7 @@ import (
 	"github.com/igusev/glf/internal/logger"
 	"github.com/igusev/glf/internal/search"
 	"github.com/igusev/glf/internal/tui"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -256,7 +256,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 }
 
 // runJSONMode outputs search results in JSON format for API integrations
-func runJSONMode(projects []types.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
+func runJSONMode(projects []model.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
 	if len(projects) == 0 {
 		return outputJSONError("no projects in cache")
 	}
@@ -354,7 +354,7 @@ func outputJSONError(message string) error {
 }
 
 // runAutoGo automatically selects first result and opens it in browser
-func runAutoGo(projects []types.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
+func runAutoGo(projects []model.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
 	// Default sync function that calls performSyncInternal
 	syncFunc := func() error {
 		return performSyncInternal(cfg, true, false)
@@ -363,7 +363,7 @@ func runAutoGo(projects []types.Project, query string, cfg *config.Config, descI
 }
 
 // runAutoGoWithSync is the testable version that accepts a sync function
-func runAutoGoWithSync(projects []types.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex, syncFunc func() error) error {
+func runAutoGoWithSync(projects []model.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex, syncFunc func() error) error {
 	if len(projects) == 0 {
 		return fmt.Errorf("no projects in cache")
 	}
@@ -701,7 +701,7 @@ func runClearHistory(cfg *config.Config) error {
 }
 
 // runInteractive launches the interactive TUI with optional initial query
-func runInteractive(projects []types.Project, initialQuery string, cfg *config.Config) error {
+func runInteractive(projects []model.Project, initialQuery string, cfg *config.Config) error {
 	if len(projects) == 0 {
 		fmt.Println("No projects in cache. Run 'glf --sync' to fetch projects.")
 		return nil
@@ -954,7 +954,7 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 		logger.Debug("Failed to load last full sync time: %v", fullSyncErr)
 	}
 
-	var projects []types.Project
+	var projects []model.Project
 	var syncMode string
 	const fullSyncInterval = 7 * 24 * time.Hour // 7 days
 
@@ -1047,7 +1047,7 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 }
 
 // indexDescriptions indexes project descriptions for full-text search
-func indexDescriptions(projects []types.Project, cacheDir string, silent bool) error {
+func indexDescriptions(projects []model.Project, cacheDir string, silent bool) error {
 	logInfo := logger.Info
 	logSuccess := logger.Success
 	if silent {

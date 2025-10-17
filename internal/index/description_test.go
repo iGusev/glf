@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/blevesearch/bleve/v2/search"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 func TestNewDescriptionIndex(t *testing.T) {
@@ -588,7 +588,7 @@ func TestDescriptionIndex_GetAllProjects(t *testing.T) {
 	}
 
 	// Verify projects have correct data
-	pathMap := make(map[string]types.Project)
+	pathMap := make(map[string]model.Project)
 	for _, p := range projects {
 		pathMap[p.Path] = p
 	}

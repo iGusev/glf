@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 const projectsFileName = "projects.txt"
@@ -36,7 +36,7 @@ func (c *Cache) ProjectsPath() string {
 
 // WriteProjects writes a list of projects to the cache
 // Format: path|name|description (one per line, description may be empty)
-func (c *Cache) WriteProjects(projects []types.Project) error {
+func (c *Cache) WriteProjects(projects []model.Project) error {
 	if err := c.EnsureDir(); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
@@ -73,7 +73,7 @@ func (c *Cache) WriteProjects(projects []types.Project) error {
 // ReadProjects reads the list of projects from cache
 // Format: path|name|description (one per line, description may be empty)
 // Also supports old format: path|name (for backward compatibility)
-func (c *Cache) ReadProjects() ([]types.Project, error) {
+func (c *Cache) ReadProjects() ([]model.Project, error) {
 	f, err := os.Open(c.ProjectsPath())
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -88,7 +88,7 @@ func (c *Cache) ReadProjects() ([]types.Project, error) {
 		}
 	}()
 
-	var projects []types.Project
+	var projects []model.Project
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -103,7 +103,7 @@ func (c *Cache) ReadProjects() ([]types.Project, error) {
 			continue
 		}
 
-		project := types.Project{
+		project := model.Project{
 			Path: parts[0],
 			Name: parts[1],
 		}

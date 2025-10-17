@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/igusev/glf/internal/config"
 	"github.com/igusev/glf/internal/index"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 func TestFormatNumber(t *testing.T) {
@@ -183,9 +183,9 @@ func TestFormatCountWithBreakdown(t *testing.T) {
 		{
 			name: "some matches",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}},
-				{Project: types.Project{Path: "b"}},
-				{Project: types.Project{Path: "c"}},
+				{Project: model.Project{Path: "a"}},
+				{Project: model.Project{Path: "b"}},
+				{Project: model.Project{Path: "c"}},
 			},
 			total:          10,
 			expectFiltered: true,
@@ -193,8 +193,8 @@ func TestFormatCountWithBreakdown(t *testing.T) {
 		{
 			name: "all matches (no filter)",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}},
-				{Project: types.Project{Path: "b"}},
+				{Project: model.Project{Path: "a"}},
+				{Project: model.Project{Path: "b"}},
 			},
 			total:          2,
 			expectFiltered: false,
@@ -276,9 +276,9 @@ func TestFormatCountWithBreakdown_SourceBreakdown(t *testing.T) {
 		{
 			name: "name only matches",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}, Source: index.MatchSourceName},
-				{Project: types.Project{Path: "b"}, Source: index.MatchSourceName},
-				{Project: types.Project{Path: "c"}, Source: index.MatchSourceName},
+				{Project: model.Project{Path: "a"}, Source: index.MatchSourceName},
+				{Project: model.Project{Path: "b"}, Source: index.MatchSourceName},
+				{Project: model.Project{Path: "c"}, Source: index.MatchSourceName},
 			},
 			total:           10,
 			expectByName:    true,
@@ -289,8 +289,8 @@ func TestFormatCountWithBreakdown_SourceBreakdown(t *testing.T) {
 		{
 			name: "description only matches",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}, Source: index.MatchSourceDescription},
-				{Project: types.Project{Path: "b"}, Source: index.MatchSourceDescription},
+				{Project: model.Project{Path: "a"}, Source: index.MatchSourceDescription},
+				{Project: model.Project{Path: "b"}, Source: index.MatchSourceDescription},
 			},
 			total:           5,
 			expectByName:    false,
@@ -301,8 +301,8 @@ func TestFormatCountWithBreakdown_SourceBreakdown(t *testing.T) {
 		{
 			name: "both name and description",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}, Source: index.MatchSourceName | index.MatchSourceDescription},
-				{Project: types.Project{Path: "b"}, Source: index.MatchSourceName | index.MatchSourceDescription},
+				{Project: model.Project{Path: "a"}, Source: index.MatchSourceName | index.MatchSourceDescription},
+				{Project: model.Project{Path: "b"}, Source: index.MatchSourceName | index.MatchSourceDescription},
 			},
 			total:           8,
 			expectByName:    false,
@@ -313,9 +313,9 @@ func TestFormatCountWithBreakdown_SourceBreakdown(t *testing.T) {
 		{
 			name: "mixed sources",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}, Source: index.MatchSourceName},
-				{Project: types.Project{Path: "b"}, Source: index.MatchSourceDescription},
-				{Project: types.Project{Path: "c"}, Source: index.MatchSourceName | index.MatchSourceDescription},
+				{Project: model.Project{Path: "a"}, Source: index.MatchSourceName},
+				{Project: model.Project{Path: "b"}, Source: index.MatchSourceDescription},
+				{Project: model.Project{Path: "c"}, Source: index.MatchSourceName | index.MatchSourceDescription},
 			},
 			total:           12,
 			expectByName:    true,
@@ -326,8 +326,8 @@ func TestFormatCountWithBreakdown_SourceBreakdown(t *testing.T) {
 		{
 			name: "no breakdown when all match",
 			matches: []index.CombinedMatch{
-				{Project: types.Project{Path: "a"}, Source: index.MatchSourceName},
-				{Project: types.Project{Path: "b"}, Source: index.MatchSourceName},
+				{Project: model.Project{Path: "a"}, Source: index.MatchSourceName},
+				{Project: model.Project{Path: "b"}, Source: index.MatchSourceName},
 			},
 			total:           2, // filtered == total
 			expectByName:    false,
@@ -396,9 +396,9 @@ func TestFormatCountWithBreakdown_AllProjectsNoQuery(t *testing.T) {
 	activeStyle := lipgloss.NewStyle()
 
 	matches := []index.CombinedMatch{
-		{Project: types.Project{Path: "a"}, Source: index.MatchSourceName},
-		{Project: types.Project{Path: "b"}, Source: index.MatchSourceName},
-		{Project: types.Project{Path: "c"}, Source: index.MatchSourceName},
+		{Project: model.Project{Path: "a"}, Source: index.MatchSourceName},
+		{Project: model.Project{Path: "b"}, Source: index.MatchSourceName},
+		{Project: model.Project{Path: "c"}, Source: index.MatchSourceName},
 	}
 	total := 3 // Same as filtered
 
@@ -437,7 +437,7 @@ func TestNew(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "group/project1", Name: "Project 1"},
 		{Path: "group/project2", Name: "Project 2"},
 	}
@@ -483,7 +483,7 @@ func TestNew_WithInitialQuery(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "group/api", Name: "API"},
 		{Path: "group/web", Name: "Web"},
 	}
@@ -505,7 +505,7 @@ func TestInit(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	cmd := m.Init()
@@ -523,7 +523,7 @@ func TestUpdate_Quit(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 
 	// Test Ctrl+C
@@ -562,7 +562,7 @@ func TestUpdate_Navigation(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project1", Name: "Project 1"},
 		{Path: "test/project2", Name: "Project 2"},
 		{Path: "test/project3", Name: "Project 3"},
@@ -624,7 +624,7 @@ func TestUpdate_Selection(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project1", Name: "Project 1"},
 		{Path: "test/project2", Name: "Project 2"},
 	}
@@ -661,7 +661,7 @@ func TestUpdate_WindowSize(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 
 	// Send window size message
@@ -686,7 +686,7 @@ func TestUpdate_ToggleHelp(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 
 	// Initially help should be hidden
@@ -720,7 +720,7 @@ func TestView(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project1", Name: "Project 1", Description: "Test project 1"},
 		{Path: "test/project2", Name: "Project 2", Description: "Test project 2"},
 	}
@@ -762,7 +762,7 @@ func TestView_Quitting(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.quitting = true
 
@@ -900,7 +900,7 @@ func TestUpdate_CtrlR_Sync(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
 	// Create sync callback
 	syncCallback := func() tea.Cmd {
@@ -938,7 +938,7 @@ func TestUpdate_CtrlR_AlreadySyncing(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.syncing = true // Already syncing
@@ -962,7 +962,7 @@ func TestUpdate_CtrlH_ToggleExcluded(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project1", Name: "Project 1"},
 		{Path: "test/project2", Name: "Project 2"},
 	}
@@ -1002,12 +1002,12 @@ func TestUpdate_SyncCompleteMsg_Success(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	initialProjects := []types.Project{{Path: "test/project1", Name: "Project 1"}}
+	initialProjects := []model.Project{{Path: "test/project1", Name: "Project 1"}}
 	m := New(initialProjects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.syncing = true
 
 	// Send successful sync message with new projects
-	newProjects := []types.Project{
+	newProjects := []model.Project{
 		{Path: "test/project1", Name: "Project 1"},
 		{Path: "test/project2", Name: "Project 2"},
 	}
@@ -1040,7 +1040,7 @@ func TestUpdate_SyncCompleteMsg_Error(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project1", Name: "Project 1"}}
+	projects := []model.Project{{Path: "test/project1", Name: "Project 1"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.syncing = true
 
@@ -1079,7 +1079,7 @@ func TestUpdate_HistoryLoadedMsg(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.historyLoading = true
 
@@ -1103,7 +1103,7 @@ func TestUpdate_HistoryLoadedMsg_Error(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.historyLoading = true
 
@@ -1128,7 +1128,7 @@ func TestInit_AutoSync(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
 	syncCallback := func() tea.Cmd {
 		return func() tea.Msg {
@@ -1170,7 +1170,7 @@ func TestInit_NoAutoSync(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 
@@ -1196,7 +1196,7 @@ func TestView_WithSyncError(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.width = 80
 	m.height = 24
@@ -1224,7 +1224,7 @@ func TestView_NarrowTerminal(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 
 	// Set very narrow terminal
@@ -1247,7 +1247,7 @@ func TestView_WithHelp(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
 	m.width = 100
 	m.height = 30
@@ -1269,7 +1269,7 @@ func TestUpdate_AutoSyncMsg(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: tempDir},
 	}
 
-	projects := []types.Project{{Path: "test/project", Name: "Test"}}
+	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
 	syncCallback := func() tea.Cmd {
 		return func() tea.Msg {
@@ -1311,7 +1311,7 @@ func TestRenderMatch(t *testing.T) {
 		{
 			name: "name match without snippet",
 			match: index.CombinedMatch{
-				Project: types.Project{
+				Project: model.Project{
 					Path: "backend/api",
 					Name: "API Server",
 				},
@@ -1325,7 +1325,7 @@ func TestRenderMatch(t *testing.T) {
 		{
 			name: "description match with snippet",
 			match: index.CombinedMatch{
-				Project: types.Project{
+				Project: model.Project{
 					Path:        "backend/api",
 					Name:        "API Server",
 					Description: "REST API for authentication",
@@ -1341,7 +1341,7 @@ func TestRenderMatch(t *testing.T) {
 		{
 			name: "both sources with scores",
 			match: index.CombinedMatch{
-				Project: types.Project{
+				Project: model.Project{
 					Path: "backend/api",
 					Name: "API Server",
 				},

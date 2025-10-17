@@ -1,6 +1,6 @@
 package index
 
-import "github.com/igusev/glf/internal/types"
+import "github.com/igusev/glf/internal/model"
 
 // DescriptionDocument represents an indexed project description
 type DescriptionDocument struct {
@@ -12,7 +12,7 @@ type DescriptionDocument struct {
 
 // DescriptionMatch represents a search result from description index
 type DescriptionMatch struct {
-	Project types.Project // The matched project
+	Project model.Project // The matched project
 	Snippet string        // Context snippet with highlighted match
 	Score   float64       // Relevance score from bleve
 }
@@ -29,7 +29,7 @@ const (
 
 // CombinedMatch represents a unified search result with score breakdown
 type CombinedMatch struct {
-	Project      types.Project
+	Project      model.Project
 	Snippet      string      // Description snippet if found there
 	SearchScore  float64     // Bleve relevance score
 	TotalScore   float64     // Combined score (SearchScore + HistoryScore + StarredBonus)

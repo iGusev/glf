@@ -13,7 +13,7 @@ import (
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/search"
 	"github.com/blevesearch/bleve/v2/search/query"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 const (
@@ -287,7 +287,7 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 		snippet := extractSnippet(hit)
 
 		match := DescriptionMatch{
-			Project: types.Project{
+			Project: model.Project{
 				Path:        projectPath,
 				Name:        projectName,
 				Description: description,
@@ -397,7 +397,7 @@ func NewDescriptionIndexWithAutoRecreate(indexPath string) (*DescriptionIndex, b
 
 // GetAllProjects retrieves all projects from the index
 // Returns all indexed projects (no pagination)
-func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
+func (di *DescriptionIndex) GetAllProjects() ([]model.Project, error) {
 	// Use match_all query to get everything
 	query := bleve.NewMatchAllQuery()
 
@@ -408,7 +408,7 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 	}
 
 	if count == 0 {
-		return []types.Project{}, nil
+		return []model.Project{}, nil
 	}
 
 	// Request all documents with bounds checking for integer overflow
@@ -426,7 +426,7 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 	}
 
 	// Convert results to Project slice (filtering out version document)
-	projects := make([]types.Project, 0, len(searchResults.Hits))
+	projects := make([]model.Project, 0, len(searchResults.Hits))
 	for _, hit := range searchResults.Hits {
 		// Skip version document (it has ID __index_version__ and no ProjectPath)
 		if hit.ID == versionDocID {
@@ -450,7 +450,7 @@ func (di *DescriptionIndex) GetAllProjects() ([]types.Project, error) {
 			starred = false
 		}
 
-		projects = append(projects, types.Project{
+		projects = append(projects, model.Project{
 			Path:        projectPath,
 			Name:        projectName,
 			Description: description,

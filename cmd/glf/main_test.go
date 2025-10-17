@@ -12,7 +12,7 @@ import (
 
 	"github.com/igusev/glf/internal/config"
 	"github.com/igusev/glf/internal/index"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 	"github.com/spf13/cobra"
 )
 
@@ -116,7 +116,7 @@ func TestIndexDescriptions_EmptyProjects(t *testing.T) {
 	// Test indexing empty project list
 	tempDir := t.TempDir()
 
-	projects := []types.Project{}
+	projects := []model.Project{}
 
 	err := indexDescriptions(projects, tempDir, true)
 	if err != nil {
@@ -134,7 +134,7 @@ func TestIndexDescriptions_SingleProject(t *testing.T) {
 	// Test indexing a single project
 	tempDir := t.TempDir()
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{
 			Path:        "group/project1",
 			Name:        "Project 1",
@@ -159,9 +159,9 @@ func TestIndexDescriptions_MultipleProjects(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create 150 projects to test batch logic (batches of 100)
-	projects := make([]types.Project, 150)
+	projects := make([]model.Project, 150)
 	for i := 0; i < 150; i++ {
-		projects[i] = types.Project{
+		projects[i] = model.Project{
 			Path:        "group/project" + string(rune(i)),
 			Name:        "Project " + string(rune(i)),
 			Description: "Test description " + string(rune(i)),
@@ -184,7 +184,7 @@ func TestIndexDescriptions_ProjectsWithoutDescription(t *testing.T) {
 	// Test indexing projects without descriptions
 	tempDir := t.TempDir()
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{
 			Path:        "group/project1",
 			Name:        "Project 1",
@@ -225,7 +225,7 @@ func TestIndexDescriptions_InvalidCacheDir(t *testing.T) {
 		invalidPath = "/nonexistent/readonly/path/that/cannot/be/created"
 	}
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{
 			Path:        "group/project1",
 			Name:        "Project 1",
@@ -260,7 +260,7 @@ cache:
 
 	// Create minimal index so we get past the index check
 	// Index a single dummy project
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project", Name: "Test", Description: "Test"},
 	}
 	_ = indexDescriptions(projects, cacheDir, true)
@@ -988,7 +988,7 @@ func TestIndexDescriptions_VerifyIndexContent(t *testing.T) {
 	// Test that we can actually query the index after indexing
 	tempDir := t.TempDir()
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{
 			Path:        "group/project1",
 			Name:        "Backend API",
@@ -1030,7 +1030,7 @@ func TestIndexDescriptions_IncrementalUpdate(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// First batch
-	projects1 := []types.Project{
+	projects1 := []model.Project{
 		{
 			Path:        "group/project1",
 			Name:        "Project 1",
@@ -1044,7 +1044,7 @@ func TestIndexDescriptions_IncrementalUpdate(t *testing.T) {
 	}
 
 	// Second batch (simulating incremental sync)
-	projects2 := []types.Project{
+	projects2 := []model.Project{
 		{
 			Path:        "group/project2",
 			Name:        "Project 2",
@@ -1094,7 +1094,7 @@ cache:
 	_ = os.WriteFile(configPath, []byte(configContent), 0600)
 
 	// Create valid index first
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "test/project", Name: "Test", Description: "Test"},
 	}
 	_ = indexDescriptions(projects, cacheDir, true)
@@ -1143,7 +1143,7 @@ func TestIndexDescriptions_WithExistingIndex(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// First indexing - create index with initial projects
-	projects1 := []types.Project{
+	projects1 := []model.Project{
 		{Path: "group/project1", Name: "Project 1", Description: "First project"},
 		{Path: "group/project2", Name: "Project 2", Description: "Second project"},
 	}
@@ -1161,7 +1161,7 @@ func TestIndexDescriptions_WithExistingIndex(t *testing.T) {
 
 	// Second indexing - add more projects to existing index
 	// This should trigger the "Existing index has X documents" log path
-	projects2 := []types.Project{
+	projects2 := []model.Project{
 		{Path: "group/project3", Name: "Project 3", Description: "Third project"},
 	}
 
@@ -1195,9 +1195,9 @@ func TestIndexDescriptions_LargeBatch(t *testing.T) {
 
 	// Create exactly 200 projects to trigger multiple batches and progress logs
 	// This will create 2 full batches of 100 each
-	projects := make([]types.Project, 200)
+	projects := make([]model.Project, 200)
 	for i := 0; i < 200; i++ {
-		projects[i] = types.Project{
+		projects[i] = model.Project{
 			Path:        "group/project-" + string(rune(i)),
 			Name:        "Project " + string(rune(i)),
 			Description: "Description " + string(rune(i)),
@@ -1265,8 +1265,8 @@ func TestPerformSyncInternalWithClient_Success(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil // Connection succeeds
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
-			return []types.Project{
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "Test project 1"},
 				{Path: "group/project2", Name: "Project 2", Description: "Test project 2"},
 			}, nil
@@ -1358,7 +1358,7 @@ func TestPerformSyncInternalWithClient_FetchFailure(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil // Connection succeeds
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
 			return nil, fmt.Errorf("API error: rate limit exceeded")
 		},
 	}
@@ -1396,8 +1396,8 @@ func TestPerformSyncInternalWithClient_NoProjects(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
-			return []types.Project{}, nil // Empty list
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+			return []model.Project{}, nil // Empty list
 		},
 	}
 
@@ -1430,11 +1430,11 @@ func TestPerformSyncInternalWithClient_IncrementalSync(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
 			if since != nil {
 				t.Error("First sync should be full sync (since should be nil)")
 			}
-			return []types.Project{
+			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "First"},
 			}, nil
 		},
@@ -1451,13 +1451,13 @@ func TestPerformSyncInternalWithClient_IncrementalSync(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
 			if since == nil {
 				t.Error("Second sync should be incremental (since should not be nil)")
 			} else {
 				incrementalCallMade = true
 			}
-			return []types.Project{
+			return []model.Project{
 				{Path: "group/project2", Name: "Project 2", Description: "Second"},
 			}, nil
 		},
@@ -1510,8 +1510,8 @@ func TestPerformSyncInternalWithClient_ForceFullSync(t *testing.T) {
 	// First sync to create timestamp
 	mockClient1 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
-			return []types.Project{
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "First"},
 			}, nil
 		},
@@ -1522,11 +1522,11 @@ func TestPerformSyncInternalWithClient_ForceFullSync(t *testing.T) {
 	var fullSyncCalled bool
 	mockClient2 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
 			if since == nil {
 				fullSyncCalled = true
 			}
-			return []types.Project{
+			return []model.Project{
 				{Path: "group/project2", Name: "Project 2", Description: "Second"},
 			}, nil
 		},
@@ -1552,7 +1552,7 @@ func TestRunAutoGoWithSync_EmptyProjects(t *testing.T) {
 
 	mockSync := func() error { return nil }
 
-	err := runAutoGoWithSync([]types.Project{}, "query", cfg, nil, mockSync)
+	err := runAutoGoWithSync([]model.Project{}, "query", cfg, nil, mockSync)
 	if err == nil {
 		t.Fatal("Expected error for empty projects, got nil")
 	}
@@ -1575,7 +1575,7 @@ func TestRunAutoGoWithSync_NoMatches(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 	}
 
@@ -1618,7 +1618,7 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 	}
 
@@ -1671,7 +1671,7 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 	}
 
@@ -1727,7 +1727,7 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 	}
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
 	}
 
@@ -1789,8 +1789,8 @@ func TestPerformSyncInternalWithClient_IncrementalSyncNoChanges(t *testing.T) {
 	// First sync to establish baseline
 	mockClient1 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
-			return []types.Project{
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "First"},
 			}, nil
 		},
@@ -1800,9 +1800,9 @@ func TestPerformSyncInternalWithClient_IncrementalSyncNoChanges(t *testing.T) {
 	// Second sync - incremental with no changes (returns 0 projects)
 	mockClient2 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]types.Project, error) {
+		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
 			// Return empty list - no projects changed
-			return []types.Project{}, nil
+			return []model.Project{}, nil
 		},
 	}
 

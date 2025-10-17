@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/igusev/glf/internal/logger"
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -17,7 +17,7 @@ import (
 //
 //nolint:revive // GitLabClient is intentional - distinguishes interface from concrete Client struct
 type GitLabClient interface {
-	FetchAllProjects(since *time.Time) ([]types.Project, error)
+	FetchAllProjects(since *time.Time) ([]model.Project, error)
 	TestConnection() error
 	GetCurrentUsername() (string, error)
 }
@@ -50,7 +50,7 @@ func New(url, token string, timeout time.Duration) (*Client, error) {
 // FetchAllProjects fetches all accessible projects from GitLab using parallel pagination
 // If since is provided, only fetches projects with last_activity_after >= since (incremental sync)
 // Returns a slice of Project structs containing path, name, and starred information
-func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
+func (c *Client) FetchAllProjects(since *time.Time) ([]model.Project, error) {
 	// Step 0: Fetch starred projects
 	logger.Debug("Fetching starred projects...")
 	starredProjects, err := c.FetchStarredProjects()
@@ -90,9 +90,9 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 
 	if totalPages <= 1 {
 		// Only one page, return immediately
-		var result []types.Project
+		var result []model.Project
 		for _, project := range firstPageProjects {
-			result = append(result, types.Project{
+			result = append(result, model.Project{
 				Path:        project.PathWithNamespace,
 				Name:        project.Name,
 				Description: project.Description,
@@ -110,7 +110,7 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 	startTime := time.Now()
 
 	type pageResult struct {
-		projects []types.Project
+		projects []model.Project
 		err      error
 		page     int
 	}
@@ -128,9 +128,9 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 	var completedPages int32
 
 	// Add first page to results
-	var firstPageProjs []types.Project
+	var firstPageProjs []model.Project
 	for _, project := range firstPageProjects {
-		firstPageProjs = append(firstPageProjs, types.Project{
+		firstPageProjs = append(firstPageProjs, model.Project{
 			Path:        project.PathWithNamespace,
 			Name:        project.Name,
 			Description: project.Description,
@@ -169,9 +169,9 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 			}
 
 			// Extract projects
-			var projs []types.Project
+			var projs []model.Project
 			for _, project := range projects {
-				projs = append(projs, types.Project{
+				projs = append(projs, model.Project{
 					Path:        project.PathWithNamespace,
 					Name:        project.Name,
 					Description: project.Description,
@@ -194,7 +194,7 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 	}()
 
 	// Step 3: Collect all results
-	pageMap := make(map[int][]types.Project)
+	pageMap := make(map[int][]model.Project)
 	for result := range results {
 		if result.err != nil {
 			return nil, fmt.Errorf("failed to fetch page %d: %w", result.page, result.err)
@@ -203,7 +203,7 @@ func (c *Client) FetchAllProjects(since *time.Time) ([]types.Project, error) {
 	}
 
 	// Step 4: Combine results in correct order
-	var allProjects []types.Project
+	var allProjects []model.Project
 	for page := 1; page <= totalPages; page++ {
 		allProjects = append(allProjects, pageMap[page]...)
 	}

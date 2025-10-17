@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/igusev/glf/internal/types"
+	"github.com/igusev/glf/internal/model"
 )
 
 func TestSaveLoadLastSyncTime(t *testing.T) {
@@ -109,7 +109,7 @@ func TestReadWriteProjects(t *testing.T) {
 	cache := New(tmpDir)
 
 	// Create test projects
-	projects := []types.Project{
+	projects := []model.Project{
 		{
 			Path:        "group/project1",
 			Name:        "Project 1",
@@ -217,7 +217,7 @@ func TestExists(t *testing.T) {
 	}
 
 	// After writing, should exist
-	projects := []types.Project{{Path: "test", Name: "Test"}}
+	projects := []model.Project{{Path: "test", Name: "Test"}}
 	if err := cache.WriteProjects(projects); err != nil {
 		t.Fatalf("WriteProjects failed: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestStats(t *testing.T) {
 
 	cache := New(tmpDir)
 
-	projects := []types.Project{
+	projects := []model.Project{
 		{Path: "p1", Name: "Project 1"},
 		{Path: "p2", Name: "Project 2"},
 		{Path: "p3", Name: "Project 3"},
@@ -368,7 +368,7 @@ func TestReadProjects_DescriptionWithNewlines(t *testing.T) {
 	cache := New(tmpDir)
 
 	// Create project with description containing newlines
-	projects := []types.Project{
+	projects := []model.Project{
 		{
 			Path:        "group/project",
 			Name:        "Project",
@@ -461,7 +461,7 @@ func TestWriteProjects_ReadOnlyDir(t *testing.T) {
 	defer os.Chmod(tmpDir, 0755) // Restore for cleanup
 
 	cache := New(filepath.Join(tmpDir, "subdir"))
-	projects := []types.Project{{Path: "test", Name: "Test"}}
+	projects := []model.Project{{Path: "test", Name: "Test"}}
 
 	err = cache.WriteProjects(projects)
 	if err == nil {
@@ -690,7 +690,7 @@ func TestWriteProjects_CreateExistingFile(t *testing.T) {
 	}
 	defer os.Chmod(projectsPath, 0644) // Cleanup
 
-	projects := []types.Project{{Path: "test", Name: "Test"}}
+	projects := []model.Project{{Path: "test", Name: "Test"}}
 	err = cache.WriteProjects(projects)
 	if err == nil {
 		t.Error("WriteProjects should fail when cannot create/overwrite file")
