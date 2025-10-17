@@ -12,8 +12,8 @@ import (
 	"github.com/igusev/glf/internal/config"
 	"github.com/igusev/glf/internal/history"
 	"github.com/igusev/glf/internal/index"
-	"github.com/igusev/glf/internal/search"
 	"github.com/igusev/glf/internal/model"
+	"github.com/igusev/glf/internal/search"
 )
 
 // SyncStartMsg is sent when sync starts

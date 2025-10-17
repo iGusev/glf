@@ -20,9 +20,9 @@ import (
 	"github.com/igusev/glf/internal/history"
 	"github.com/igusev/glf/internal/index"
 	"github.com/igusev/glf/internal/logger"
+	"github.com/igusev/glf/internal/model"
 	"github.com/igusev/glf/internal/search"
 	"github.com/igusev/glf/internal/tui"
-	"github.com/igusev/glf/internal/model"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
