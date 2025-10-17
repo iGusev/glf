@@ -75,18 +75,18 @@ type (
 )
 
 var (
-	verbose        bool // Flag to enable verbose logging
-	showScores     bool // Flag to show score breakdown (search + history)
-	autoGo         bool // Flag to automatically select first result and open in browser
-	doSync         bool // Flag to perform sync instead of search
-	forceFull      bool // Flag to force full sync (ignore incremental)
-	doInit         bool // Flag to run interactive configuration wizard
-	resetFlag      bool // Flag to reset configuration and start from scratch
-	jsonOutput     bool // Flag to enable JSON output mode for API integrations
-	limitResults   int  // Flag to limit number of results in JSON mode
-	testColors     bool // Flag to show color palette examples
-	showHistory    bool // Flag to display search history
-	clearHistory   bool // Flag to clear search history
+	verbose      bool // Flag to enable verbose logging
+	showScores   bool // Flag to show score breakdown (search + history)
+	autoGo       bool // Flag to automatically select first result and open in browser
+	doSync       bool // Flag to perform sync instead of search
+	forceFull    bool // Flag to force full sync (ignore incremental)
+	doInit       bool // Flag to run interactive configuration wizard
+	resetFlag    bool // Flag to reset configuration and start from scratch
+	jsonOutput   bool // Flag to enable JSON output mode for API integrations
+	limitResults int  // Flag to limit number of results in JSON mode
+	testColors   bool // Flag to show color palette examples
+	showHistory  bool // Flag to display search history
+	clearHistory bool // Flag to clear search history
 )
 
 var rootCmd = &cobra.Command{
@@ -822,10 +822,10 @@ func runInteractive(projects []types.Project, initialQuery string, cfg *config.C
 			for _, proj := range newProjects {
 				// Index all projects, even those without descriptions
 				batchDocs = append(batchDocs, index.DescriptionDocument{
-					ProjectPath:  proj.Path,
-					ProjectName:  proj.Name,
-					Description:  proj.Description,
-					Starred:      proj.Starred,
+					ProjectPath: proj.Path,
+					ProjectName: proj.Name,
+					Description: proj.Description,
+					Starred:     proj.Starred,
 				})
 			}
 
@@ -1090,10 +1090,10 @@ func indexDescriptions(projects []types.Project, cacheDir string, silent bool) e
 	for _, proj := range projects {
 		// Index all projects, even those without descriptions
 		batchDocs = append(batchDocs, index.DescriptionDocument{
-			ProjectPath:  proj.Path,
-			ProjectName:  proj.Name,
-			Description:  proj.Description,
-			Starred:      proj.Starred,
+			ProjectPath: proj.Path,
+			ProjectName: proj.Name,
+			Description: proj.Description,
+			Starred:     proj.Starred,
 		})
 
 		// Index batch when it reaches 100 docs

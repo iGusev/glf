@@ -272,21 +272,21 @@ func (cs *ColorScheme) GetStyles() Styles {
 
 // Styles holds pre-configured lipgloss styles
 type Styles struct {
-	Title        lipgloss.Style
-	Version      lipgloss.Style
-	ServerInfo   lipgloss.Style
-	Prompt       lipgloss.Style
-	Normal       lipgloss.Style
-	Selected     lipgloss.Style
-	Highlight    lipgloss.Style
-	Snippet      lipgloss.Style
+	Title           lipgloss.Style
+	Version         lipgloss.Style
+	ServerInfo      lipgloss.Style
+	Prompt          lipgloss.Style
+	Normal          lipgloss.Style
+	Selected        lipgloss.Style
+	Highlight       lipgloss.Style
+	Snippet         lipgloss.Style
 	Count           lipgloss.Style
 	CountActive     lipgloss.Style
 	Cursor          lipgloss.Style
 	Excluded        lipgloss.Style
 	ExcludedStarred lipgloss.Style
 	StatusActive    lipgloss.Style
-	StatusError  lipgloss.Style
-	StatusIdle   lipgloss.Style
-	Help         lipgloss.Style
+	StatusError     lipgloss.Style
+	StatusIdle      lipgloss.Style
+	Help            lipgloss.Style
 }

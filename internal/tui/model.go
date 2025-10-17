@@ -319,9 +319,9 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 	var result strings.Builder
 
 	// For starred projects, use gold color (or pale gold if excluded)
-	goldColor := lipgloss.Color("#FDB515")          // California Gold (normal)
-	paleGoldColor := lipgloss.Color("#B8A687")      // Pale gold for light theme (excluded starred)
-	mutedGoldDark := lipgloss.Color("#6B5D3F")      // Muted gold for dark theme (excluded starred)
+	goldColor := lipgloss.Color("#FDB515")     // California Gold (normal)
+	paleGoldColor := lipgloss.Color("#B8A687") // Pale gold for light theme (excluded starred)
+	mutedGoldDark := lipgloss.Color("#6B5D3F") // Muted gold for dark theme (excluded starred)
 
 	if match.Project.Starred {
 		var heartStyle lipgloss.Style
@@ -388,8 +388,8 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 			// Use muted gold color for snippet if starred (to distinguish from main text)
 			if isExcluded {
 				// Excluded starred: use even more muted pale gold for snippet
-				snippetPaleGold := lipgloss.Color("#998F76")      // Very muted pale gold for light
-				snippetMutedDark := lipgloss.Color("#4A4332")     // Very muted dark gold for dark
+				snippetPaleGold := lipgloss.Color("#998F76")  // Very muted pale gold for light
+				snippetMutedDark := lipgloss.Color("#4A4332") // Very muted dark gold for dark
 				snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetPaleGold), Dark: string(snippetMutedDark)})
 			} else {
 				// Normal starred: use muted gold
@@ -398,8 +398,8 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 			}
 		} else if isExcluded {
 			// Excluded non-starred: use even more muted gray for snippet (barely visible)
-			snippetExcludedLight := lipgloss.Color("#B8B8B8")  // Very muted gray for light
-			snippetExcludedDark := lipgloss.Color("#4A4A4A")   // Very muted gray for dark
+			snippetExcludedLight := lipgloss.Color("#B8B8B8") // Very muted gray for light
+			snippetExcludedDark := lipgloss.Color("#4A4A4A")  // Very muted gray for dark
 			snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetExcludedLight), Dark: string(snippetExcludedDark)})
 		}
 		result.WriteString(snippetStyle.Render(snippet))
