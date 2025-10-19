@@ -96,6 +96,26 @@ scoops:
     description: "Fast CLI tool for instant fuzzy search across self-hosted GitLab projects"
     license: "MIT"
 
+nfpms:
+  - id: glf
+    package_name: glf
+    vendor: Igor Gusev
+    homepage: "https://github.com/igusev/glf"
+    maintainer: "Igor Gusev <igusev@example.com>"
+    description: "Fast CLI tool for instant fuzzy search across self-hosted GitLab projects"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+      - apk
+      - archlinux
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/glf/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/glf/README.md
+
 changelog:
   sort: asc
   use: github

@@ -76,6 +76,55 @@ scoop install igusev/glf
 scoop update glf
 ```
 
+#### Linux Packages
+
+Native packages for various Linux distributions are available on the [releases page](https://github.com/igusev/glf/releases).
+
+##### Debian/Ubuntu (APT)
+
+```bash
+# Download the .deb package from releases
+wget https://github.com/igusev/glf/releases/download/v0.3.0/glf_0.3.0_linux_amd64.deb
+
+# Install the package
+sudo apt install ./glf_0.3.0_linux_amd64.deb
+```
+
+##### Fedora/RHEL/CentOS (DNF/YUM)
+
+```bash
+# Download the .rpm package from releases
+wget https://github.com/igusev/glf/releases/download/v0.3.0/glf_0.3.0_linux_amd64.rpm
+
+# Install the package (Fedora/RHEL 8+)
+sudo dnf install ./glf_0.3.0_linux_amd64.rpm
+
+# Or using yum (RHEL 7/CentOS 7)
+sudo yum install ./glf_0.3.0_linux_amd64.rpm
+```
+
+##### Alpine Linux (APK)
+
+```bash
+# Download the .apk package from releases
+wget https://github.com/igusev/glf/releases/download/v0.3.0/glf_0.3.0_linux_amd64.apk
+
+# Install the package
+sudo apk add --allow-untrusted ./glf_0.3.0_linux_amd64.apk
+```
+
+##### Arch Linux (Pacman)
+
+```bash
+# Download the archlinux package from releases
+wget https://github.com/igusev/glf/releases/download/v0.3.0/glf_0.3.0_linux_amd64.pkg.tar.zst
+
+# Install the package
+sudo pacman -U ./glf_0.3.0_linux_amd64.pkg.tar.zst
+```
+
+**Note**: Replace `v0.3.0` and `0.3.0` with the latest version number from the [releases page](https://github.com/igusev/glf/releases).
+
 #### From Source
 
 ```bash
@@ -91,7 +140,11 @@ make install
 
 You can download the official GLF binaries from the [releases page](https://github.com/igusev/glf/releases).
 
-Available for: **macOS** (Intel & Apple Silicon), **Linux** (x64, ARM, ARM64, and more), **Windows** (x64), **FreeBSD**, **OpenBSD**.
+**Available formats:**
+- **macOS** (Intel & Apple Silicon): `.tar.gz` archives
+- **Linux**: `.tar.gz` archives, `.deb` packages (Debian/Ubuntu), `.rpm` packages (Fedora/RHEL), `.apk` packages (Alpine), Arch Linux packages
+- **Windows** (x64): `.zip` archives
+- **FreeBSD**, **OpenBSD**: `.tar.gz` archives
 
 ### Configuration
 
@@ -395,10 +448,11 @@ GLF uses automated CI/CD for releases via GitHub Actions and [GoReleaser](https:
 When a new version tag is pushed, the release workflow automatically:
 
 1. ✅ Builds binaries for all supported platforms (macOS, Linux, Windows, FreeBSD, OpenBSD)
-2. ✅ Creates GitHub Release with artifacts and changelog
-3. ✅ Updates [Homebrew tap](https://github.com/igusev/homebrew-tap) for macOS/Linux users
-4. ✅ Updates [MacPorts Portfile](https://github.com/igusev/macports-ports) for macOS users
-5. ✅ Updates [Scoop bucket](https://github.com/igusev/scoop-bucket) for Windows users
+2. ✅ Creates Linux packages (.deb, .rpm, .apk, Arch Linux)
+3. ✅ Creates GitHub Release with artifacts and changelog
+4. ✅ Updates [Homebrew tap](https://github.com/igusev/homebrew-tap) for macOS/Linux users
+5. ✅ Updates [MacPorts Portfile](https://github.com/igusev/macports-ports) for macOS users
+6. ✅ Updates [Scoop bucket](https://github.com/igusev/scoop-bucket) for Windows users
 
 #### Creating a New Release
 
