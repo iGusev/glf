@@ -57,7 +57,7 @@ func NewDescriptionIndex(indexPath string) (*DescriptionIndex, error) {
 		// Store version in new index
 		versionDoc := versionDocument{Version: IndexVersion}
 		if err := index.Index(versionDocID, versionDoc); err != nil {
-			index.Close()
+			_ = index.Close() // Ignore close error on error path
 			return nil, fmt.Errorf("failed to store index version: %w", err)
 		}
 	} else {
@@ -73,7 +73,7 @@ func NewDescriptionIndex(indexPath string) (*DescriptionIndex, error) {
 		searchRes, err := index.Search(searchReq)
 		if err != nil || len(searchRes.Hits) == 0 {
 			// Old index without version metadata (version 1)
-			index.Close()
+			_ = index.Close() // Ignore close error on error path
 			return nil, fmt.Errorf("%w: index created before versioning was added", ErrIndexVersionMismatch)
 		}
 
@@ -85,12 +85,12 @@ func NewDescriptionIndex(indexPath string) (*DescriptionIndex, error) {
 
 		if storedVersion == 0 {
 			// Couldn't determine version - assume old
-			index.Close()
+			_ = index.Close() // Ignore close error on error path
 			return nil, fmt.Errorf("%w: could not determine index version", ErrIndexVersionMismatch)
 		}
 
 		if storedVersion != IndexVersion {
-			index.Close()
+			_ = index.Close() // Ignore close error on error path
 			return nil, fmt.Errorf("%w: index version %d, current version %d",
 				ErrIndexVersionMismatch, storedVersion, IndexVersion)
 		}
