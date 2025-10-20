@@ -261,21 +261,21 @@ func runJSONMode(projects []model.Project, query string, cfg *config.Config, des
 		return outputJSONError("no projects in cache")
 	}
 
+	// Load history for score boosting (used for both empty and non-empty queries)
+	historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
+	hist := history.New(historyPath)
+
+	// Load history synchronously
+	errCh := hist.LoadAsync()
+	if err := <-errCh; err != nil {
+		logger.Debug("Failed to load history: %v", err)
+	}
+
 	var matches []index.CombinedMatch
 	var err error
 
 	// If query is provided, perform search
 	if query != "" {
-		// Load history for score boosting
-		historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
-		hist := history.New(historyPath)
-
-		// Load history synchronously
-		errCh := hist.LoadAsync()
-		if err := <-errCh; err != nil {
-			logger.Debug("Failed to load history: %v", err)
-		}
-
 		// Get query-specific history scores
 		historyScores := hist.GetAllScoresForQuery(query)
 
@@ -285,12 +285,34 @@ func runJSONMode(projects []model.Project, query string, cfg *config.Config, des
 			return outputJSONError(fmt.Sprintf("search failed: %v", err))
 		}
 	} else {
-		// No query - return all projects
+		// No query - rank by history scores and starred status
+		// Get ALL history scores (not query-specific)
+		allHistoryScores := hist.GetAllScores()
+
+		// Create matches with history scores
 		matches = make([]index.CombinedMatch, len(projects))
 		for i, proj := range projects {
+			histScore := float64(allHistoryScores[proj.Path])
+
+			// Give starred projects a bonus
+			starBonus := 0.0
+			if proj.Starred {
+				starBonus = 50.0 // Same bonus as in search
+			}
+
 			matches[i] = index.CombinedMatch{
 				Project:    proj,
-				TotalScore: 0,
+				TotalScore: histScore + starBonus,
+			}
+		}
+
+		// Sort by score descending (highest first)
+		// Projects with higher history scores + starred bonus come first
+		for i := 0; i < len(matches)-1; i++ {
+			for j := i + 1; j < len(matches); j++ {
+				if matches[j].TotalScore > matches[i].TotalScore {
+					matches[i], matches[j] = matches[j], matches[i]
+				}
 			}
 		}
 	}
