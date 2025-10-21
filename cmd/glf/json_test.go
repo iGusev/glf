@@ -159,9 +159,9 @@ func TestRunJSONMode_WithoutQuery(t *testing.T) {
 
 	// Create test projects
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API",  Member: true},
-		{Path: "frontend/app", Name: "Frontend App", Description: "React app",  Member: true},
-		{Path: "devops/tools", Name: "DevOps Tools", Description: "CI/CD tools",  Member: true},
+		{Path: "backend/api", Name: "API Server", Description: "REST API", Member: true},
+		{Path: "frontend/app", Name: "Frontend App", Description: "React app", Member: true},
+		{Path: "devops/tools", Name: "DevOps Tools", Description: "CI/CD tools", Member: true},
 	}
 
 	// Create empty index (not used for empty query, but needed for function signature)
@@ -236,7 +236,7 @@ func TestRunJSONMode_WithScores(t *testing.T) {
 
 	// Create test projects
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API backend",  Member: true},
+		{Path: "backend/api", Name: "API Server", Description: "REST API backend", Member: true},
 	}
 
 	// Create and populate index
@@ -625,9 +625,9 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 
 	// Create projects that won't match
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API backend",  Member: true},
-		{Path: "frontend/app", Name: "Frontend", Description: "React application",  Member: true},
-		{Path: "devops/ci", Name: "DevOps", Description: "CI/CD pipeline",  Member: true},
+		{Path: "backend/api", Name: "API Server", Description: "REST API backend", Member: true},
+		{Path: "frontend/app", Name: "Frontend", Description: "React application", Member: true},
+		{Path: "devops/ci", Name: "DevOps", Description: "CI/CD pipeline", Member: true},
 	}
 
 	// Create and populate index
@@ -782,7 +782,7 @@ func TestRunJSONMode_HistoryLoadError(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "test/project", Name: "Test", Description: "Test project",  Member: true},
+		{Path: "test/project", Name: "Test", Description: "Test project", Member: true},
 	}
 
 	// Create corrupted history.gob file
@@ -854,10 +854,10 @@ func TestRunJSONMode_MultiTokenQuery(t *testing.T) {
 
 	// Create projects with varying matches
 	projects := []model.Project{
-		{Path: "backend/api-gateway", Name: "API Gateway", Description: "Gateway service for APIs",  Member: true},
-		{Path: "backend/service", Name: "Backend Service", Description: "Core backend logic",  Member: true},
-		{Path: "backend/api-core", Name: "API Backend Core", Description: "Core API backend service",  Member: true},
-		{Path: "frontend/app", Name: "Frontend", Description: "React application",  Member: true},
+		{Path: "backend/api-gateway", Name: "API Gateway", Description: "Gateway service for APIs", Member: true},
+		{Path: "backend/service", Name: "Backend Service", Description: "Core backend logic", Member: true},
+		{Path: "backend/api-core", Name: "API Backend Core", Description: "Core API backend service", Member: true},
+		{Path: "frontend/app", Name: "Frontend", Description: "React application", Member: true},
 	}
 
 	// Create and populate index
@@ -1025,8 +1025,8 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "backend/api-server", Name: "API Server", Description: "REST API backend",  Member: true},
-		{Path: "backend/worker", Name: "Worker", Description: "Background jobs",  Member: true},
+		{Path: "backend/api-server", Name: "API Server", Description: "REST API backend", Member: true},
+		{Path: "backend/worker", Name: "Worker", Description: "Background jobs", Member: true},
 	}
 
 	// Create and populate index
@@ -1129,11 +1129,11 @@ func TestRunJSONMode_ScoreOrdering(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "project/alpha", Name: "Alpha", Description: "API service alpha",  Member: true},
-		{Path: "project/beta", Name: "Beta", Description: "API service beta",  Member: true},
-		{Path: "project/gamma", Name: "Gamma", Description: "API service gamma",  Member: true},
-		{Path: "project/delta", Name: "Delta", Description: "API service delta",  Member: true},
-		{Path: "project/epsilon", Name: "Epsilon", Description: "API service epsilon",  Member: true},
+		{Path: "project/alpha", Name: "Alpha", Description: "API service alpha", Member: true},
+		{Path: "project/beta", Name: "Beta", Description: "API service beta", Member: true},
+		{Path: "project/gamma", Name: "Gamma", Description: "API service gamma", Member: true},
+		{Path: "project/delta", Name: "Delta", Description: "API service delta", Member: true},
+		{Path: "project/epsilon", Name: "Epsilon", Description: "API service epsilon", Member: true},
 	}
 
 	// Create and populate index
@@ -1269,7 +1269,7 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 			}
 
 			projects := []model.Project{
-				{Path: "backend/api", Name: "API Backend", Description: "REST API backend service",  Member: true},
+				{Path: "backend/api", Name: "API Backend", Description: "REST API backend service", Member: true},
 			}
 
 			// Create and populate index
@@ -1520,7 +1520,7 @@ func TestRunJSONMode_SecurityValidation(t *testing.T) {
 			}
 
 			projects := []model.Project{
-				{Path: "test/project", Name: "Test", Description: "Safe description",  Member: true},
+				{Path: "test/project", Name: "Test", Description: "Safe description", Member: true},
 			}
 
 			// Create and populate index

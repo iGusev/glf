@@ -181,9 +181,9 @@ func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Pr
 					PerPage: 100,
 					Page:    pageNum,
 				},
-				Membership:        gitlab.Ptr(membership),        // Preserve membership filter
-				Simple:            gitlab.Ptr(true),              // Return only limited fields
-				LastActivityAfter: opt.LastActivityAfter,         // Preserve incremental filter
+				Membership:        gitlab.Ptr(membership), // Preserve membership filter
+				Simple:            gitlab.Ptr(true),       // Return only limited fields
+				LastActivityAfter: opt.LastActivityAfter,  // Preserve incremental filter
 			}
 
 			// Fetch the page
