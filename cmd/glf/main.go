@@ -87,7 +87,6 @@ var (
 	resetFlag    bool // Flag to reset configuration and start from scratch
 	jsonOutput   bool // Flag to enable JSON output mode for API integrations
 	limitResults int  // Flag to limit number of results in JSON mode
-	testColors   bool // Flag to show color palette examples
 	showHistory  bool // Flag to display search history
 	clearHistory bool // Flag to clear search history
 	showHidden   bool // Flag to show hidden projects (excluded, archived, non-member) - affects TUI initial state and JSON output
@@ -127,12 +126,6 @@ Configuration:
 
 // runSearch handles the default search behavior
 func runSearch(cmd *cobra.Command, args []string) error {
-	// Handle --test-colors flag (no config needed)
-	if testColors {
-		showColorPalette()
-		return nil
-	}
-
 	// Handle --init flag first (before loading config)
 	if doInit {
 		return runConfigWizard()
@@ -1611,7 +1604,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&resetFlag, "reset", false, "reset configuration and start from scratch (use with --init)")
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output results in JSON format (for integrations)")
 	rootCmd.PersistentFlags().IntVar(&limitResults, "limit", 20, "limit number of results (for JSON mode)")
-	rootCmd.PersistentFlags().BoolVar(&testColors, "test-colors", false, "show gold color palette examples for starred projects")
 	rootCmd.PersistentFlags().BoolVar(&showHistory, "history", false, "show search history with scores")
 	rootCmd.PersistentFlags().BoolVar(&clearHistory, "clear-history", false, "clear search history")
 	rootCmd.PersistentFlags().BoolVar(&showHidden, "show-hidden", false, "show hidden projects (excluded, archived, non-member) - toggle with Ctrl+H in TUI")
