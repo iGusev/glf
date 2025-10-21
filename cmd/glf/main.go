@@ -65,6 +65,9 @@ type (
 		Description string  `json:"description"`     // Project description
 		URL         string  `json:"url"`             // Full project URL
 		Starred     bool    `json:"starred"`         // Whether the project is starred by the user
+		Excluded    bool    `json:"excluded"`        // Whether the project is excluded via config
+		Archived    bool    `json:"archived"`        // Whether the project is archived
+		Member      bool    `json:"member"`          // Whether the user is a member of this project
 		Score       float64 `json:"score,omitempty"` // Relevance score (optional, with --scores)
 	}
 
@@ -87,6 +90,7 @@ var (
 	testColors   bool // Flag to show color palette examples
 	showHistory  bool // Flag to display search history
 	clearHistory bool // Flag to clear search history
+	showHidden   bool // Flag to show hidden projects (excluded, archived, non-member) - affects TUI initial state and JSON output
 )
 
 var rootCmd = &cobra.Command{
@@ -317,6 +321,10 @@ func runJSONMode(projects []model.Project, query string, cfg *config.Config, des
 		}
 	}
 
+	// JSON mode: Include ALL projects with status fields (excluded, archived, member)
+	// API consumers (like Raycast) can implement their own filtering based on these fields
+	// The --show-hidden flag is more relevant for TUI where we control display
+
 	// Apply limit
 	if limitResults > 0 && len(matches) > limitResults {
 		matches = matches[:limitResults]
@@ -329,12 +337,18 @@ func runJSONMode(projects []model.Project, query string, cfg *config.Config, des
 		projectPath := strings.TrimPrefix(match.Project.Path, "/")
 		projectURL := fmt.Sprintf("%s/%s", gitlabURL, projectPath)
 
+		// Check if project is excluded via config
+		isExcluded := cfg != nil && cfg.IsExcluded(match.Project.Path)
+
 		jsonProjects[i] = JSONProject{
 			Path:        match.Project.Path,
 			Name:        match.Project.Name,
 			Description: match.Project.Description,
 			URL:         projectURL,
 			Starred:     match.Project.Starred,
+			Excluded:    isExcluded,
+			Archived:    match.Project.Archived,
+			Member:      match.Project.Member,
 		}
 
 		// Include score if --scores flag is set
@@ -810,7 +824,8 @@ func runInteractive(projects []model.Project, initialQuery string, cfg *config.C
 			}
 
 			// Fetch projects (incremental or full)
-			newProjects, err := client.FetchAllProjects(sincePtr)
+			// Always fetch ALL projects (membership=false) - filtering happens at display time
+			newProjects, err := client.FetchAllProjects(sincePtr, false)
 			if err != nil {
 				return tui.SyncCompleteMsg{Err: err}
 			}
@@ -827,7 +842,8 @@ func runInteractive(projects []model.Project, initialQuery string, cfg *config.C
 				syncMode = syncModeFull
 
 				// Re-fetch all projects for full sync
-				newProjects, err = client.FetchAllProjects(nil)
+				// Always fetch ALL projects (membership=false) - filtering happens at display time
+				newProjects, err = client.FetchAllProjects(nil, false)
 				if err != nil {
 					return tui.SyncCompleteMsg{Err: err}
 				}
@@ -848,6 +864,8 @@ func runInteractive(projects []model.Project, initialQuery string, cfg *config.C
 					ProjectName: proj.Name,
 					Description: proj.Description,
 					Starred:     proj.Starred,
+					Archived:    proj.Archived,
+					Member:      proj.Member,
 				})
 			}
 
@@ -891,8 +909,8 @@ func runInteractive(projects []model.Project, initialQuery string, cfg *config.C
 		}
 	}
 
-	// Create and run the TUI with initial query, sync callback, cache dir for history, config, showScores flag, username, and version
-	m := tui.New(projects, initialQuery, syncCallback, cfg.Cache.Dir, cfg, showScores, username, version)
+	// Create and run the TUI with initial query, sync callback, cache dir for history, config, showScores flag, showHidden flag, username, and version
+	m := tui.New(projects, initialQuery, syncCallback, cfg.Cache.Dir, cfg, showScores, showHidden, username, version)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()
@@ -1014,7 +1032,8 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 		sincePtr = &lastSyncTime
 	}
 
-	projects, err = client.FetchAllProjects(sincePtr)
+	// Always fetch ALL projects (membership=false) - filtering happens at display time
+	projects, err = client.FetchAllProjects(sincePtr, false)
 	if err != nil {
 		logger.Error("Failed to fetch projects")
 		return fmt.Errorf("fetch error: %w", err)
@@ -1116,6 +1135,8 @@ func indexDescriptions(projects []model.Project, cacheDir string, silent bool) e
 			ProjectName: proj.Name,
 			Description: proj.Description,
 			Starred:     proj.Starred,
+			Archived:    proj.Archived,
+			Member:      proj.Member,
 		})
 
 		// Index batch when it reaches 100 docs
@@ -1593,6 +1614,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&testColors, "test-colors", false, "show gold color palette examples for starred projects")
 	rootCmd.PersistentFlags().BoolVar(&showHistory, "history", false, "show search history with scores")
 	rootCmd.PersistentFlags().BoolVar(&clearHistory, "clear-history", false, "clear search history")
+	rootCmd.PersistentFlags().BoolVar(&showHidden, "show-hidden", false, "show hidden projects (excluded, archived, non-member) - toggle with Ctrl+H in TUI")
 
 	// Set up verbose mode before command execution
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {

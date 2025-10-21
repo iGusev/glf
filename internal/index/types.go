@@ -8,6 +8,8 @@ type DescriptionDocument struct {
 	ProjectName string // e.g., "login-service"
 	Description string // Project description
 	Starred     bool   // Whether the project is starred by the user
+	Archived    bool   // Whether the project is archived
+	Member      bool   // Whether the user is a member of this project
 }
 
 // DescriptionMatch represents a search result from description index

@@ -1265,7 +1265,7 @@ func TestPerformSyncInternalWithClient_Success(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil // Connection succeeds
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "Test project 1"},
 				{Path: "group/project2", Name: "Project 2", Description: "Test project 2"},
@@ -1358,7 +1358,7 @@ func TestPerformSyncInternalWithClient_FetchFailure(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil // Connection succeeds
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			return nil, fmt.Errorf("API error: rate limit exceeded")
 		},
 	}
@@ -1396,7 +1396,7 @@ func TestPerformSyncInternalWithClient_NoProjects(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			return []model.Project{}, nil // Empty list
 		},
 	}
@@ -1430,7 +1430,7 @@ func TestPerformSyncInternalWithClient_IncrementalSync(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			if since != nil {
 				t.Error("First sync should be full sync (since should be nil)")
 			}
@@ -1451,7 +1451,7 @@ func TestPerformSyncInternalWithClient_IncrementalSync(t *testing.T) {
 		testConnectionFunc: func() error {
 			return nil
 		},
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			if since == nil {
 				t.Error("Second sync should be incremental (since should not be nil)")
 			} else {
@@ -1510,7 +1510,7 @@ func TestPerformSyncInternalWithClient_ForceFullSync(t *testing.T) {
 	// First sync to create timestamp
 	mockClient1 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "First"},
 			}, nil
@@ -1522,7 +1522,7 @@ func TestPerformSyncInternalWithClient_ForceFullSync(t *testing.T) {
 	var fullSyncCalled bool
 	mockClient2 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			if since == nil {
 				fullSyncCalled = true
 			}
@@ -1586,7 +1586,7 @@ func TestRunAutoGoWithSync_NoMatches(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1629,7 +1629,7 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1682,7 +1682,7 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1738,7 +1738,7 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -1789,7 +1789,7 @@ func TestPerformSyncInternalWithClient_IncrementalSyncNoChanges(t *testing.T) {
 	// First sync to establish baseline
 	mockClient1 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			return []model.Project{
 				{Path: "group/project1", Name: "Project 1", Description: "First"},
 			}, nil
@@ -1800,7 +1800,7 @@ func TestPerformSyncInternalWithClient_IncrementalSyncNoChanges(t *testing.T) {
 	// Second sync - incremental with no changes (returns 0 projects)
 	mockClient2 := &mockGitLabClient{
 		testConnectionFunc: func() error { return nil },
-		fetchProjectsFunc: func(since *time.Time) ([]model.Project, error) {
+		fetchProjectsFunc: func(since *time.Time, membership bool) ([]model.Project, error) {
 			// Return empty list - no projects changed
 			return []model.Project{}, nil
 		},

@@ -47,19 +47,20 @@ type Model struct {
 	colorScheme    *ColorScheme          // Adaptive color scheme
 	onSync         func() tea.Cmd        // Callback to trigger sync
 	cursor         int                   // Current cursor position in filtered list
+	viewportStart  int                   // Index of first visible item in viewport
 	width          int                   // Terminal width
 	height         int                   // Terminal height
 	quitting       bool                  // Whether user is quitting
 	syncing        bool                  // Whether sync is in progress
 	autoSync       bool                  // Whether to auto-sync on start
 	historyLoading bool                  // Whether history is being loaded
-	showExcluded   bool                  // Whether to show excluded projects
+	showHidden     bool                  // Whether to show hidden projects (excluded, archived, non-member)
 	showScores     bool                  // Whether to show score breakdown
 	showHelp       bool                  // Whether to show help text
 }
 
 // New creates a new TUI model with the given projects and optional initial query
-func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, cacheDir string, cfg *config.Config, showScores bool, username string, version string) Model {
+func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, cacheDir string, cfg *config.Config, showScores bool, showHidden bool, username string, version string) Model {
 	// Initialize color scheme
 	colorScheme := NewColorScheme()
 	styles := colorScheme.GetStyles()
@@ -99,7 +100,7 @@ func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, c
 		history:        hist,
 		historyLoading: true, // Will be loaded async
 		config:         cfg,
-		showExcluded:   false, // Hide excluded projects by default
+		showHidden:     showHidden, // Initial state from CLI flag - controls visibility of excluded, archived, and non-member
 		cacheDir:       cacheDir,
 		showScores:     showScores, // Show score breakdown if requested
 		colorScheme:    colorScheme,
@@ -206,20 +207,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// Re-filter to apply changes
 				m.filter()
-				// Adjust cursor if needed
+				// Adjust cursor and viewport if needed
 				if m.cursor >= len(m.filtered) && m.cursor > 0 {
 					m.cursor = len(m.filtered) - 1
 				}
+				m.viewportStart = 0
 			}
 
 		case "ctrl+h":
-			// Toggle showing excluded projects
-			m.showExcluded = !m.showExcluded
+			// Toggle showing hidden projects (excluded, archived, non-member)
+			m.showHidden = !m.showHidden
 			m.filter()
-			// Reset cursor
+			// Reset cursor and viewport
 			if m.cursor >= len(m.filtered) && m.cursor > 0 {
 				m.cursor = len(m.filtered) - 1
 			}
+			m.viewportStart = 0
 
 		case "?":
 			// Toggle help text
@@ -228,18 +231,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "ctrl+n":
 			if m.cursor < len(m.filtered)-1 {
 				m.cursor++
+				// Adjust viewport if cursor scrolled below visible area
+				// Calculate available lines for the viewport
+				usedLines := 6 // Title, separator, empty, search, 2 empty
+				if m.showHelp {
+					usedLines += 3
+				}
+				maxAvailableLines := m.height - usedLines
+				if maxAvailableLines < 1 {
+					maxAvailableLines = 1
+				}
+				m.ensureCursorVisible(maxAvailableLines)
 			}
 
 		case "up", "ctrl+p":
 			if m.cursor > 0 {
 				m.cursor--
+				// Adjust viewport if cursor scrolled above visible area
+				if m.cursor < m.viewportStart {
+					m.viewportStart = m.cursor
+				}
 			}
 
 		default:
 			// Update text input and filter
 			m.textInput, cmd = m.textInput.Update(msg)
 			m.filter()
-			m.cursor = 0 // Reset cursor when query changes
+			m.cursor = 0        // Reset cursor when query changes
+			m.viewportStart = 0 // Reset viewport when query changes
 		}
 
 	case autoSyncMsg:
@@ -299,34 +318,83 @@ func (m *Model) filter() {
 		allMatches = []index.CombinedMatch{}
 	}
 
-	// Apply exclusion filter if needed
-	if m.config != nil && !m.showExcluded {
-		filtered := make([]index.CombinedMatch, 0, len(allMatches))
-		for _, match := range allMatches {
-			if !m.config.IsExcluded(match.Project.Path) {
-				filtered = append(filtered, match)
+	// Apply hidden projects filter if needed (unless showHidden is true)
+	// Filter out: excluded, archived, and non-member projects
+	filtered := allMatches
+	if !m.showHidden {
+		temp := make([]index.CombinedMatch, 0, len(filtered))
+		for _, match := range filtered {
+			// Skip if excluded by config
+			if m.config != nil && m.config.IsExcluded(match.Project.Path) {
+				continue
 			}
+			// Skip if archived
+			if match.Project.Archived {
+				continue
+			}
+			// Skip if non-member (Member field is false)
+			if !match.Project.Member {
+				continue
+			}
+			temp = append(temp, match)
 		}
-		m.filtered = filtered
-	} else {
-		m.filtered = allMatches
+		filtered = temp
+	}
+
+	m.filtered = filtered
+}
+
+// ensureCursorVisible adjusts viewportStart if cursor is not visible in viewport
+func (m *Model) ensureCursorVisible(maxAvailableLines int) {
+	if len(m.filtered) == 0 {
+		return
+	}
+
+	// If cursor is above viewport, move viewport up
+	if m.cursor < m.viewportStart {
+		m.viewportStart = m.cursor
+		return
+	}
+
+	// Calculate how many items fit from viewportStart
+	linesUsed := 0
+	visibleItems := 0
+	for i := m.viewportStart; i < len(m.filtered) && linesUsed < maxAvailableLines; i++ {
+		itemLines := 1
+		if m.filtered[i].Snippet != "" {
+			itemLines = 2
+		}
+		if linesUsed+itemLines > maxAvailableLines {
+			break
+		}
+		linesUsed += itemLines
+		visibleItems++
+	}
+
+	// If cursor is beyond visible items, adjust viewport down
+	if m.cursor >= m.viewportStart+visibleItems {
+		// Move viewport so cursor is at bottom of screen
+		m.viewportStart = m.cursor - visibleItems + 1
+		if m.viewportStart < 0 {
+			m.viewportStart = 0
+		}
 	}
 }
 
 // renderMatch renders a matched project with visual indicators and optional snippet
 // Returns multiple lines if snippet is present and item is selected
-func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, excludedStarredStyle lipgloss.Style, query string, showScores bool, isExcluded bool) string {
+func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, excludedStarredStyle lipgloss.Style, query string, showScores bool, isHidden bool) string {
 	var result strings.Builder
 
-	// For starred projects, use gold color (or pale gold if excluded)
+	// For starred projects, use gold color (or pale gold if hidden)
 	goldColor := lipgloss.Color("#FDB515")     // California Gold (normal)
-	paleGoldColor := lipgloss.Color("#B8A687") // Pale gold for light theme (excluded starred)
-	mutedGoldDark := lipgloss.Color("#6B5D3F") // Muted gold for dark theme (excluded starred)
+	paleGoldColor := lipgloss.Color("#B8A687") // Pale gold for light theme (hidden starred)
+	mutedGoldDark := lipgloss.Color("#6B5D3F") // Muted gold for dark theme (hidden starred)
 
 	if match.Project.Starred {
 		var heartStyle lipgloss.Style
-		if isExcluded {
-			// Excluded starred: use pale gold
+		if isHidden {
+			// Hidden starred: use pale gold
 			style = excludedStarredStyle
 			highlightStyle = highlightStyle.Foreground(paleGoldColor).Bold(true)
 			heartStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(paleGoldColor), Dark: string(mutedGoldDark)})
@@ -355,7 +423,7 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 	if showScores {
 		scoreStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")) // Gray
 		if match.Project.Starred {
-			if isExcluded {
+			if isHidden {
 				scoreStyle = scoreStyle.Foreground(lipgloss.AdaptiveColor{Light: string(paleGoldColor), Dark: string(mutedGoldDark)})
 			} else {
 				scoreStyle = scoreStyle.Foreground(goldColor)
@@ -386,8 +454,8 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 
 		if match.Project.Starred {
 			// Use muted gold color for snippet if starred (to distinguish from main text)
-			if isExcluded {
-				// Excluded starred: use even more muted pale gold for snippet
+			if isHidden {
+				// Hidden starred: use even more muted pale gold for snippet
 				snippetPaleGold := lipgloss.Color("#998F76")  // Very muted pale gold for light
 				snippetMutedDark := lipgloss.Color("#4A4332") // Very muted dark gold for dark
 				snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetPaleGold), Dark: string(snippetMutedDark)})
@@ -396,11 +464,11 @@ func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle
 				mutedGold := lipgloss.Color("#9B8B5E") // More grey-ish gold, less saturated
 				snippetStyle = snippetStyle.Foreground(mutedGold)
 			}
-		} else if isExcluded {
-			// Excluded non-starred: use even more muted gray for snippet (barely visible)
-			snippetExcludedLight := lipgloss.Color("#B8B8B8") // Very muted gray for light
-			snippetExcludedDark := lipgloss.Color("#4A4A4A")  // Very muted gray for dark
-			snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetExcludedLight), Dark: string(snippetExcludedDark)})
+		} else if isHidden {
+			// Hidden non-starred: use even more muted gray for snippet (barely visible)
+			snippetHiddenLight := lipgloss.Color("#B8B8B8") // Very muted gray for light
+			snippetHiddenDark := lipgloss.Color("#4A4A4A")  // Very muted gray for dark
+			snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetHiddenLight), Dark: string(snippetHiddenDark)})
 		}
 		result.WriteString(snippetStyle.Render(snippet))
 	}
@@ -546,38 +614,10 @@ func (m Model) View() string {
 
 	// Render projects, counting actual lines to stay within viewport
 	renderedLines := 0
-	start := 0
 
-	// Simple scrolling: show items from start, make sure cursor is visible
-	// Calculate how many items fit before cursor
-	if m.cursor > 0 && len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-		// First, calculate how many lines the cursor item needs
-		cursorItemLines := 1
-		if m.filtered[m.cursor].Snippet != "" {
-			cursorItemLines++
-		}
-
-		// Try to fit items before cursor
-		lineCount := cursorItemLines // Start with cursor item
-		itemsBeforeCursor := 0
-
-		for i := m.cursor - 1; i >= 0; i-- {
-			itemLines := 1
-			if m.filtered[i].Snippet != "" {
-				itemLines++
-			}
-			if lineCount+itemLines > maxAvailableLines {
-				break
-			}
-			lineCount += itemLines
-			itemsBeforeCursor++
-		}
-
-		start = m.cursor - itemsBeforeCursor
-		if start < 0 {
-			start = 0
-		}
-	}
+	// Use viewportStart for scrolling - no recalculation needed
+	// viewportStart is maintained in Update() when cursor moves
+	start := m.viewportStart
 
 	// Render visible projects, stopping when we run out of space
 	for i := start; i < len(m.filtered); i++ {
@@ -595,6 +635,9 @@ func (m Model) View() string {
 		}
 
 		isExcluded := m.config != nil && m.config.IsExcluded(match.Project.Path)
+		isArchived := match.Project.Archived
+		isNonMember := !match.Project.Member
+		isHidden := isExcluded || isArchived || isNonMember // Any type of hidden project
 
 		// Indicator (rendered separately to preserve its color)
 		if i == m.cursor {
@@ -607,7 +650,7 @@ func (m Model) View() string {
 
 		// Render project name (with visual indicators and optional snippet)
 		query := strings.TrimSpace(m.textInput.Value())
-		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, m.styles.ExcludedStarred, query, m.showScores, isExcluded)
+		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, m.styles.ExcludedStarred, query, m.showScores, isHidden)
 
 		// Split content by lines to apply background to each line separately
 		lines := strings.Split(projectContent, "\n")
@@ -620,12 +663,19 @@ func (m Model) View() string {
 			// Build full line with prefix
 			var lineContent string
 			if lineIdx == 0 {
-				// First line: add space and optional excluded indicator
-				if isExcluded && m.showExcluded {
-					lineContent = " [✕] " + line
-				} else {
-					lineContent = " " + line
+				// First line: add space and optional hidden project indicators
+				prefix := " "
+				if m.showHidden {
+					// Show visual indicators for different types of hidden projects
+					if isExcluded {
+						prefix += "[✕] " // Excluded by user (config)
+					} else if isArchived {
+						prefix += "[A] " // Archived
+					} else if isNonMember {
+						prefix += "[G] " // Non-member (guest - visible but not a member)
+					}
 				}
+				lineContent = prefix + line
 			} else {
 				// Snippet lines: add indentation (1 space margin + 4 spaces indent)
 				lineContent = "     " + line
@@ -636,7 +686,7 @@ func (m Model) View() string {
 				// Apply background with width to fill the terminal
 				styledLine := m.styles.Selected.Width(m.width - 2).Render(lineContent) // -2 for cursor + initial space
 				b.WriteString(styledLine)
-			} else if isExcluded && m.showExcluded {
+			} else if isHidden && m.showHidden {
 				b.WriteString(m.styles.Excluded.Render(lineContent))
 			} else {
 				b.WriteString(m.styles.Normal.Render(lineContent))
@@ -652,12 +702,12 @@ func (m Model) View() string {
 	if m.showHelp {
 		b.WriteString("\n\n")
 
-		// Build help text with exclusion status
+		// Build help text with hidden projects status
 		var helpText string
-		if m.showExcluded {
-			helpText = "↑/↓: navigate • enter: select • ctrl+x: toggle exclusion • ctrl+h: hide excluded • ctrl+r: sync • ?: toggle help"
+		if m.showHidden {
+			helpText = "↑/↓: navigate • enter: select • ctrl+x: toggle exclusion • ctrl+h: hide hidden (✕=excluded A=archived G=guest) • ctrl+r: sync • ?: toggle help"
 		} else {
-			helpText = "↑/↓: navigate • enter: select • ctrl+x: exclude • ctrl+h: show excluded • ctrl+r: sync • ?: toggle help"
+			helpText = "↑/↓: navigate • enter: select • ctrl+x: exclude • ctrl+h: show hidden • ctrl+r: sync • ?: toggle help"
 		}
 		b.WriteString(m.styles.Help.Render(helpText))
 	}

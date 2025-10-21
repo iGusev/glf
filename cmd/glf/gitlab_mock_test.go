@@ -8,16 +8,17 @@ import (
 
 // mockGitLabClient is a mock implementation of gitlab.GitLabClient for testing
 type mockGitLabClient struct {
-	fetchProjectsFunc  func(*time.Time) ([]model.Project, error)
+	fetchProjectsFunc  func(*time.Time, bool) ([]model.Project, error)
 	testConnectionFunc func() error
 	getUsernameFunc    func() (string, error)
 }
 
-// FetchAllProjects calls the mock function if set, otherwise returns empty list
-func (m *mockGitLabClient) FetchAllProjects(since *time.Time) ([]model.Project, error) {
+// FetchAllProjects calls the mock function if set, otherwise returns empty list with Member=true
+func (m *mockGitLabClient) FetchAllProjects(since *time.Time, membership bool) ([]model.Project, error) {
 	if m.fetchProjectsFunc != nil {
-		return m.fetchProjectsFunc(since)
+		return m.fetchProjectsFunc(since, membership)
 	}
+	// Return empty list with Member=true as default for tests
 	return []model.Project{}, nil
 }
 

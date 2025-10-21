@@ -98,7 +98,7 @@ func TestFetchAllProjects_SinglePage(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	projects, err := client.FetchAllProjects(nil)
+	projects, err := client.FetchAllProjects(nil, true)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestFetchAllProjects_MultiplePages(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	projects, err := client.FetchAllProjects(nil)
+	projects, err := client.FetchAllProjects(nil, true)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestFetchAllProjects_IncrementalSync(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	_, err = client.FetchAllProjects(&since)
+	_, err = client.FetchAllProjects(&since, true)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestFetchAllProjects_APIError(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	_, err = client.FetchAllProjects(nil)
+	_, err = client.FetchAllProjects(nil, true)
 	if err == nil {
 		t.Fatal("Expected error but got none")
 	}
@@ -257,7 +257,7 @@ func TestFetchAllProjects_EmptyResponse(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	projects, err := client.FetchAllProjects(nil)
+	projects, err := client.FetchAllProjects(nil, true)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestFetchAllProjects_Timeout(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	_, err = client.FetchAllProjects(nil)
+	_, err = client.FetchAllProjects(nil, true)
 	if err == nil {
 		t.Fatal("Expected timeout error but got none")
 	}
@@ -383,7 +383,7 @@ func TestFetchAllProjects_ParallelPagination(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	projects, err := client.FetchAllProjects(nil)
+	projects, err := client.FetchAllProjects(nil, true)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}

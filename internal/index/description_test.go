@@ -58,7 +58,7 @@ func TestDescriptionIndex_OpenExisting(t *testing.T) {
 	}
 
 	// Add a document
-	err = di1.Add("group/project", "Test Project", "A test description", false)
+	err = di1.Add("group/project", "Test Project", "A test description", false, false)
 	if err != nil {
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestDescriptionIndex_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.projectPath, func(t *testing.T) {
-			err := di.Add(tt.projectPath, tt.projectName, tt.description, false)
+			err := di.Add(tt.projectPath, tt.projectName, tt.description, false, false)
 			if err != nil {
 				t.Errorf("Add() error = %v", err)
 			}
@@ -375,7 +375,7 @@ func TestDescriptionIndex_Search_FuzzyMatching(t *testing.T) {
 	defer di.Close()
 
 	// Add document with "template"
-	err = di.Add("tools/template-engine", "Template Engine", "Advanced templating system", false)
+	err = di.Add("tools/template-engine", "Template Engine", "Advanced templating system", false, false)
 	if err != nil {
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -402,7 +402,7 @@ func TestDescriptionIndex_Search_PrefixMatching(t *testing.T) {
 	defer di.Close()
 
 	// Add document
-	err = di.Add("backend/kubernetes", "Kubernetes Deployment", "K8s deployment configuration", false)
+	err = di.Add("backend/kubernetes", "Kubernetes Deployment", "K8s deployment configuration", false, false)
 	if err != nil {
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestDescriptionIndex_Count(t *testing.T) {
 
 	// Add documents
 	for i := 1; i <= 5; i++ {
-		err = di.Add("project"+string(rune('0'+i)), "P", "D", false)
+		err = di.Add("project"+string(rune('0'+i)), "P", "D", false, false)
 		if err != nil {
 			t.Fatalf("Failed to add document: %v", err)
 		}

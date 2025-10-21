@@ -70,8 +70,8 @@ func TestRunJSONMode_WithQuery(t *testing.T) {
 
 	// Create test projects
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
-		{Path: "frontend/app", Name: "Frontend App", Description: "React application"},
+		{Path: "backend/api", Name: "API Server", Description: "REST API backend", Member: true},
+		{Path: "frontend/app", Name: "Frontend App", Description: "React application", Member: true},
 	}
 
 	// Create and populate index
@@ -82,7 +82,7 @@ func TestRunJSONMode_WithQuery(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add document: %v", err)
 		}
@@ -159,9 +159,9 @@ func TestRunJSONMode_WithoutQuery(t *testing.T) {
 
 	// Create test projects
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API"},
-		{Path: "frontend/app", Name: "Frontend App", Description: "React app"},
-		{Path: "devops/tools", Name: "DevOps Tools", Description: "CI/CD tools"},
+		{Path: "backend/api", Name: "API Server", Description: "REST API",  Member: true},
+		{Path: "frontend/app", Name: "Frontend App", Description: "React app",  Member: true},
+		{Path: "devops/tools", Name: "DevOps Tools", Description: "CI/CD tools",  Member: true},
 	}
 
 	// Create empty index (not used for empty query, but needed for function signature)
@@ -236,7 +236,7 @@ func TestRunJSONMode_WithScores(t *testing.T) {
 
 	// Create test projects
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
+		{Path: "backend/api", Name: "API Server", Description: "REST API backend",  Member: true},
 	}
 
 	// Create and populate index
@@ -246,7 +246,7 @@ func TestRunJSONMode_WithScores(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add document: %v", err)
 	}
@@ -346,7 +346,7 @@ func TestRunJSONMode_URLConstruction(t *testing.T) {
 			}
 
 			projects := []model.Project{
-				{Path: tt.projectPath, Name: "Test Project", Description: "Test"},
+				{Path: tt.projectPath, Name: "Test Project", Description: "Test", Member: true},
 			}
 
 			// Create empty index
@@ -471,6 +471,7 @@ func TestRunJSONMode_LimitEdgeCases(t *testing.T) {
 					Path:        filepath.Join("group", "project"+string(rune('A'+i))),
 					Name:        "Project " + string(rune('A'+i)),
 					Description: "Test project",
+					Member:      true,
 				}
 			}
 
@@ -563,7 +564,7 @@ func TestRunJSONMode_SpecialCharacters(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -624,9 +625,9 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 
 	// Create projects that won't match
 	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API backend"},
-		{Path: "frontend/app", Name: "Frontend", Description: "React application"},
-		{Path: "devops/ci", Name: "DevOps", Description: "CI/CD pipeline"},
+		{Path: "backend/api", Name: "API Server", Description: "REST API backend",  Member: true},
+		{Path: "frontend/app", Name: "Frontend", Description: "React application",  Member: true},
+		{Path: "devops/ci", Name: "DevOps", Description: "CI/CD pipeline",  Member: true},
 	}
 
 	// Create and populate index
@@ -637,7 +638,7 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -711,6 +712,7 @@ func TestRunJSONMode_LargeResultSet(t *testing.T) {
 			Path:        filepath.Join("group", "project", "subproject"+string(rune('0'+i%10)), "item"+string(rune('A'+i/10))),
 			Name:        "Project " + string(rune('A'+i/26)) + string(rune('A'+i%26)),
 			Description: "Test project number " + string(rune('0'+i%10)),
+			Member:      true,
 		}
 	}
 
@@ -780,7 +782,7 @@ func TestRunJSONMode_HistoryLoadError(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "test/project", Name: "Test", Description: "Test project"},
+		{Path: "test/project", Name: "Test", Description: "Test project",  Member: true},
 	}
 
 	// Create corrupted history.gob file
@@ -797,7 +799,7 @@ func TestRunJSONMode_HistoryLoadError(t *testing.T) {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 
-	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+	if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 		descIndex.Close()
 		t.Fatalf("Failed to add to index: %v", err)
 	}
@@ -852,10 +854,10 @@ func TestRunJSONMode_MultiTokenQuery(t *testing.T) {
 
 	// Create projects with varying matches
 	projects := []model.Project{
-		{Path: "backend/api-gateway", Name: "API Gateway", Description: "Gateway service for APIs"},
-		{Path: "backend/service", Name: "Backend Service", Description: "Core backend logic"},
-		{Path: "backend/api-core", Name: "API Backend Core", Description: "Core API backend service"},
-		{Path: "frontend/app", Name: "Frontend", Description: "React application"},
+		{Path: "backend/api-gateway", Name: "API Gateway", Description: "Gateway service for APIs",  Member: true},
+		{Path: "backend/service", Name: "Backend Service", Description: "Core backend logic",  Member: true},
+		{Path: "backend/api-core", Name: "API Backend Core", Description: "Core API backend service",  Member: true},
+		{Path: "frontend/app", Name: "Frontend", Description: "React application",  Member: true},
 	}
 
 	// Create and populate index
@@ -866,7 +868,7 @@ func TestRunJSONMode_MultiTokenQuery(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -953,7 +955,7 @@ func TestRunJSONMode_ProjectPathEdgeCases(t *testing.T) {
 			}
 
 			projects := []model.Project{
-				{Path: tt.projectPath, Name: "Test Project", Description: tt.description},
+				{Path: tt.projectPath, Name: "Test Project", Description: tt.description, Member: true},
 			}
 
 			// Create index
@@ -1023,8 +1025,8 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "backend/api-server", Name: "API Server", Description: "REST API backend"},
-		{Path: "backend/worker", Name: "Worker", Description: "Background jobs"},
+		{Path: "backend/api-server", Name: "API Server", Description: "REST API backend",  Member: true},
+		{Path: "backend/worker", Name: "Worker", Description: "Background jobs",  Member: true},
 	}
 
 	// Create and populate index
@@ -1035,7 +1037,7 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -1127,11 +1129,11 @@ func TestRunJSONMode_ScoreOrdering(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "project/alpha", Name: "Alpha", Description: "API service alpha"},
-		{Path: "project/beta", Name: "Beta", Description: "API service beta"},
-		{Path: "project/gamma", Name: "Gamma", Description: "API service gamma"},
-		{Path: "project/delta", Name: "Delta", Description: "API service delta"},
-		{Path: "project/epsilon", Name: "Epsilon", Description: "API service epsilon"},
+		{Path: "project/alpha", Name: "Alpha", Description: "API service alpha",  Member: true},
+		{Path: "project/beta", Name: "Beta", Description: "API service beta",  Member: true},
+		{Path: "project/gamma", Name: "Gamma", Description: "API service gamma",  Member: true},
+		{Path: "project/delta", Name: "Delta", Description: "API service delta",  Member: true},
+		{Path: "project/epsilon", Name: "Epsilon", Description: "API service epsilon",  Member: true},
 	}
 
 	// Create and populate index
@@ -1142,7 +1144,7 @@ func TestRunJSONMode_ScoreOrdering(t *testing.T) {
 	}
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false, false); err != nil {
 			descIndex.Close()
 			t.Fatalf("Failed to add to index: %v", err)
 		}
@@ -1267,7 +1269,7 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 			}
 
 			projects := []model.Project{
-				{Path: "backend/api", Name: "API Backend", Description: "REST API backend service"},
+				{Path: "backend/api", Name: "API Backend", Description: "REST API backend service",  Member: true},
 			}
 
 			// Create and populate index
@@ -1277,7 +1279,7 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -1431,6 +1433,7 @@ func TestRunJSONMode_VeryLargeDataset(t *testing.T) {
 			Path:        filepath.Join("group", "subgroup", "project"+string(rune('0'+i%100))),
 			Name:        "Project " + string(rune('A'+i%26)),
 			Description: "Description " + string(rune('0'+i%10)),
+			Member:      true,
 		}
 	}
 
@@ -1517,7 +1520,7 @@ func TestRunJSONMode_SecurityValidation(t *testing.T) {
 			}
 
 			projects := []model.Project{
-				{Path: "test/project", Name: "Test", Description: "Safe description"},
+				{Path: "test/project", Name: "Test", Description: "Safe description",  Member: true},
 			}
 
 			// Create and populate index
@@ -1527,7 +1530,7 @@ func TestRunJSONMode_SecurityValidation(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -1610,7 +1613,7 @@ func TestRunJSONMode_UTF8EdgeCases(t *testing.T) {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 
-			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false); err != nil {
+			if err := descIndex.Add(projects[0].Path, projects[0].Name, projects[0].Description, false, false); err != nil {
 				descIndex.Close()
 				t.Fatalf("Failed to add to index: %v", err)
 			}
@@ -1681,6 +1684,7 @@ func TestRunJSONMode_PerformanceBenchmark(t *testing.T) {
 			Path:        filepath.Join("group", "project"+string(rune('A'+i%26))),
 			Name:        "Project " + string(rune('A'+i%26)),
 			Description: "API backend service number " + string(rune('0'+i%10)),
+			Member:      true,
 		}
 	}
 
@@ -1693,7 +1697,7 @@ func TestRunJSONMode_PerformanceBenchmark(t *testing.T) {
 	defer descIndex.Close()
 
 	for _, proj := range projects {
-		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false); err != nil {
+		if err := descIndex.Add(proj.Path, proj.Name, proj.Description, false, false); err != nil {
 			t.Fatalf("Failed to add to index: %v", err)
 		}
 	}

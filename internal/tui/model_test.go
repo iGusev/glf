@@ -443,7 +443,7 @@ func TestNew(t *testing.T) {
 	}
 
 	// Create model
-	m := New(projects, "", nil, tempDir, cfg, false, "testuser", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "testuser", "v1.0.0")
 
 	// Verify initialization
 	if len(m.projects) != 2 {
@@ -466,7 +466,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("Expected version 'v1.0.0', got '%s'", m.version)
 	}
 
-	if m.showExcluded != false {
+	if m.showHidden != false {
 		t.Error("Expected showExcluded to be false by default")
 	}
 
@@ -489,7 +489,7 @@ func TestNew_WithInitialQuery(t *testing.T) {
 	}
 
 	initialQuery := "api"
-	m := New(projects, initialQuery, nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, initialQuery, nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Check if initial query was set in text input
 	if m.textInput.Value() != initialQuery {
@@ -507,7 +507,7 @@ func TestInit(t *testing.T) {
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	cmd := m.Init()
 
 	if cmd == nil {
@@ -524,7 +524,7 @@ func TestUpdate_Quit(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Test Ctrl+C
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
@@ -540,7 +540,7 @@ func TestUpdate_Quit(t *testing.T) {
 	}
 
 	// Test Esc
-	m = New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m = New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	msg = tea.KeyMsg{Type: tea.KeyEsc}
 	newModel, cmd = m.Update(msg)
 
@@ -563,12 +563,12 @@ func TestUpdate_Navigation(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "test/project1", Name: "Project 1"},
-		{Path: "test/project2", Name: "Project 2"},
-		{Path: "test/project3", Name: "Project 3"},
+		{Path: "test/project1", Name: "Project 1", Member: true},
+		{Path: "test/project2", Name: "Project 2", Member: true},
+		{Path: "test/project3", Name: "Project 3", Member: true},
 	}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Initial cursor should be at 0
 	if m.cursor != 0 {
@@ -625,11 +625,11 @@ func TestUpdate_Selection(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "test/project1", Name: "Project 1"},
-		{Path: "test/project2", Name: "Project 2"},
+		{Path: "test/project1", Name: "Project 1", Member: true},
+		{Path: "test/project2", Name: "Project 2", Member: true},
 	}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Select first project
 	msg := tea.KeyMsg{Type: tea.KeyEnter}
@@ -662,7 +662,7 @@ func TestUpdate_WindowSize(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Send window size message
 	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
@@ -687,7 +687,7 @@ func TestUpdate_ToggleHelp(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Initially help should be hidden
 	if m.showHelp {
@@ -725,7 +725,7 @@ func TestView(t *testing.T) {
 		{Path: "test/project2", Name: "Project 2", Description: "Test project 2"},
 	}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "testuser", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "testuser", "v1.0.0")
 	m.width = 80
 	m.height = 24
 
@@ -763,7 +763,7 @@ func TestView_Quitting(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.quitting = true
 
 	view := m.View()
@@ -909,7 +909,7 @@ func TestUpdate_CtrlR_Sync(t *testing.T) {
 		}
 	}
 
-	m := New(projects, "", syncCallback, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", syncCallback, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Send Ctrl+R
 	msg := tea.KeyMsg{Type: tea.KeyCtrlR}
@@ -940,7 +940,7 @@ func TestUpdate_CtrlR_AlreadySyncing(t *testing.T) {
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.syncing = true // Already syncing
 
 	// Send Ctrl+R
@@ -963,14 +963,14 @@ func TestUpdate_CtrlH_ToggleExcluded(t *testing.T) {
 	}
 
 	projects := []model.Project{
-		{Path: "test/project1", Name: "Project 1"},
-		{Path: "test/project2", Name: "Project 2"},
+		{Path: "test/project1", Name: "Project 1", Member: true},
+		{Path: "test/project2", Name: "Project 2", Member: true},
 	}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Initially showExcluded should be false
-	if m.showExcluded {
+	if m.showHidden {
 		t.Error("Expected showExcluded to be false initially")
 	}
 
@@ -980,7 +980,7 @@ func TestUpdate_CtrlH_ToggleExcluded(t *testing.T) {
 	m = newModel.(Model)
 
 	// Should toggle to true
-	if !m.showExcluded {
+	if !m.showHidden {
 		t.Error("Expected showExcluded to be true after Ctrl+H")
 	}
 
@@ -989,7 +989,7 @@ func TestUpdate_CtrlH_ToggleExcluded(t *testing.T) {
 	m = newModel.(Model)
 
 	// Should toggle back to false
-	if m.showExcluded {
+	if m.showHidden {
 		t.Error("Expected showExcluded to be false after second Ctrl+H")
 	}
 }
@@ -1003,7 +1003,7 @@ func TestUpdate_SyncCompleteMsg_Success(t *testing.T) {
 	}
 
 	initialProjects := []model.Project{{Path: "test/project1", Name: "Project 1"}}
-	m := New(initialProjects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(initialProjects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.syncing = true
 
 	// Send successful sync message with new projects
@@ -1041,7 +1041,7 @@ func TestUpdate_SyncCompleteMsg_Error(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project1", Name: "Project 1"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.syncing = true
 
 	// Send sync error message
@@ -1080,7 +1080,7 @@ func TestUpdate_HistoryLoadedMsg(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.historyLoading = true
 
 	// Send history loaded message (success)
@@ -1104,7 +1104,7 @@ func TestUpdate_HistoryLoadedMsg_Error(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.historyLoading = true
 
 	// Send history loaded message with error
@@ -1137,7 +1137,7 @@ func TestInit_AutoSync(t *testing.T) {
 	}
 
 	// Create model with auto-sync enabled (default)
-	m := New(projects, "", syncCallback, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", syncCallback, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Verify autoSync is enabled
 	if !m.autoSync {
@@ -1172,7 +1172,7 @@ func TestInit_NoAutoSync(t *testing.T) {
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
 
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Disable auto-sync
 	m.autoSync = false
@@ -1197,7 +1197,7 @@ func TestView_WithSyncError(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.width = 80
 	m.height = 24
 	m.syncError = fmt.Errorf("network timeout")
@@ -1225,7 +1225,7 @@ func TestView_NarrowTerminal(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Set very narrow terminal
 	m.width = 40
@@ -1248,7 +1248,7 @@ func TestView_WithHelp(t *testing.T) {
 	}
 
 	projects := []model.Project{{Path: "test/project", Name: "Test"}}
-	m := New(projects, "", nil, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", nil, tempDir, cfg, false, false, "user", "v1.0.0")
 	m.width = 100
 	m.height = 30
 	m.showHelp = true // Enable help display
@@ -1277,7 +1277,7 @@ func TestUpdate_AutoSyncMsg(t *testing.T) {
 		}
 	}
 
-	m := New(projects, "", syncCallback, tempDir, cfg, false, "user", "v1.0.0")
+	m := New(projects, "", syncCallback, tempDir, cfg, false, false, "user", "v1.0.0")
 
 	// Send autoSyncMsg
 	msg := autoSyncMsg{}
