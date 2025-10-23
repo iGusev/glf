@@ -811,3 +811,258 @@ func TestCombinedSearchWithIndex_OpensAndClosesIndex(t *testing.T) {
 		descIndex2.Close()
 	}
 }
+
+// TestCalculateRelevanceMultiplier tests the relevance multiplier function
+// which applies context-aware scaling to history/starred bonuses
+func TestCalculateRelevanceMultiplier(t *testing.T) {
+	tests := []struct {
+		name           string
+		searchScore    float64
+		expectedMin    float64
+		expectedMax    float64
+		description    string
+	}{
+		{
+			name:        "below minimum threshold",
+			searchScore: 0.012,
+			expectedMin: 0.0,
+			expectedMax: 0.0,
+			description: "Very low relevance should get no boost (multiplier = 0.0)",
+		},
+		{
+			name:        "at minimum threshold",
+			searchScore: 0.1,
+			expectedMin: 0.0,
+			expectedMax: 0.0,
+			description: "Exactly at threshold should get zero boost",
+		},
+		{
+			name:        "very weak match - level 1",
+			searchScore: 0.2,
+			expectedMin: 0.07,
+			expectedMax: 0.10,
+			description: "0.10-0.30 range: very slow ramp for very weak matches",
+		},
+		{
+			name:        "weak match - level 2",
+			searchScore: 0.4,
+			expectedMin: 0.20,
+			expectedMax: 0.25,
+			description: "0.30-0.50 range: slow ramp for weak matches",
+		},
+		{
+			name:        "decent match - level 3",
+			searchScore: 0.6,
+			expectedMin: 0.35,
+			expectedMax: 0.45,
+			description: "0.50-0.70 range: moderate ramp for decent matches",
+		},
+		{
+			name:        "solid match - level 4",
+			searchScore: 0.8,
+			expectedMin: 0.55,
+			expectedMax: 0.65,
+			description: "0.70-0.90 range: medium-fast ramp for solid matches",
+		},
+		{
+			name:        "very good match - level 5",
+			searchScore: 1.0,
+			expectedMin: 0.70,
+			expectedMax: 0.80,
+			description: "0.90-1.15 range: fast ramp for very good matches",
+		},
+		{
+			name:        "excellent match - level 6",
+			searchScore: 1.3,
+			expectedMin: 0.90,
+			expectedMax: 0.98,
+			description: "1.15-1.40 range: very fast ramp for excellent matches",
+		},
+		{
+			name:        "at full boost threshold",
+			searchScore: 1.4,
+			expectedMin: 1.0,
+			expectedMax: 1.0,
+			description: "At threshold should get full boost (multiplier = 1.0)",
+		},
+		{
+			name:        "above full boost threshold",
+			searchScore: 2.0,
+			expectedMin: 1.0,
+			expectedMax: 1.0,
+			description: "Above threshold should get full boost (multiplier = 1.0)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			multiplier := calculateRelevanceMultiplier(tt.searchScore)
+
+			if multiplier < tt.expectedMin || multiplier > tt.expectedMax {
+				t.Errorf("%s: score=%.3f, multiplier=%.3f, want range [%.3f, %.3f]",
+					tt.description, tt.searchScore, multiplier, tt.expectedMin, tt.expectedMax)
+			}
+		})
+	}
+}
+
+// TestRelevanceMultiplier_RealWorldScenario tests the real-world scenario
+// where an irrelevant project with high history/starred was ranking first
+func TestRelevanceMultiplier_RealWorldScenario(t *testing.T) {
+	// Simulate the real case from user feedback:
+	// Project A: S:0.012 H:57 St:50 (irrelevant but frequently used and starred)
+	// Project B: S:3.326 H:0 (highly relevant but no history)
+
+	// Project A calculations
+	searchScoreA := 0.012
+	historyScoreA := 57
+	starredBonusA := 50
+
+	multiplierA := calculateRelevanceMultiplier(searchScoreA)
+	adjustedHistoryA := float64(historyScoreA) * multiplierA
+	adjustedStarredA := float64(starredBonusA) * multiplierA
+	totalScoreA := searchScoreA + adjustedHistoryA + adjustedStarredA
+
+	// Project B calculations
+	searchScoreB := 3.326
+	historyScoreB := 0
+	starredBonusB := 0
+
+	multiplierB := calculateRelevanceMultiplier(searchScoreB)
+	adjustedHistoryB := float64(historyScoreB) * multiplierB
+	adjustedStarredB := float64(starredBonusB) * multiplierB
+	totalScoreB := searchScoreB + adjustedHistoryB + adjustedStarredB
+
+	// Verify multiplier for irrelevant project is zero
+	if multiplierA != 0.0 {
+		t.Errorf("Irrelevant project (score=%.3f) should have multiplier=0.0, got %.3f",
+			searchScoreA, multiplierA)
+	}
+
+	// Verify adjusted bonuses for irrelevant project are zeroed
+	if adjustedHistoryA != 0.0 {
+		t.Errorf("Adjusted history for irrelevant project should be 0.0, got %.3f",
+			adjustedHistoryA)
+	}
+	if adjustedStarredA != 0.0 {
+		t.Errorf("Adjusted starred bonus for irrelevant project should be 0.0, got %.3f",
+			adjustedStarredA)
+	}
+
+	// Verify relevant project gets full boost (score > 1.4)
+	if multiplierB != 1.0 {
+		t.Errorf("Highly relevant project (score=%.3f) should have multiplier=1.0, got %.3f",
+			searchScoreB, multiplierB)
+	}
+
+	// Most importantly: verify correct ranking
+	if totalScoreB <= totalScoreA {
+		t.Errorf("Highly relevant project should rank higher:\n"+
+			"  Project A (irrelevant): S:%.3f H:%d St:%d -> Total:%.3f\n"+
+			"  Project B (relevant):   S:%.3f H:%d St:%d -> Total:%.3f",
+			searchScoreA, historyScoreA, starredBonusA, totalScoreA,
+			searchScoreB, historyScoreB, starredBonusB, totalScoreB)
+	}
+
+	t.Logf("✓ Correct ranking achieved:")
+	t.Logf("  Project A (irrelevant): S:%.3f H:%d St:%d M:%.3f -> Total:%.3f",
+		searchScoreA, historyScoreA, starredBonusA, multiplierA, totalScoreA)
+	t.Logf("  Project B (relevant):   S:%.3f H:%d St:%d M:%.3f -> Total:%.3f",
+		searchScoreB, historyScoreB, starredBonusB, multiplierB, totalScoreB)
+}
+
+// TestRelevanceMultiplier_GradationSmoothness tests that transitions
+// between gradation levels are smooth without sudden jumps
+func TestRelevanceMultiplier_GradationSmoothness(t *testing.T) {
+	// Test smoothness by checking that multiplier increases monotonically
+	prevMultiplier := 0.0
+	prevScore := 0.0
+
+	// Test at gradation boundaries and between them
+	testScores := []float64{
+		0.05, 0.1, 0.15, 0.2, 0.25, 0.3,  // Level 1 boundary
+		0.35, 0.4, 0.45, 0.5,               // Level 2 boundary
+		0.55, 0.6, 0.65, 0.7,               // Level 3 boundary
+		0.75, 0.8, 0.85, 0.9,               // Level 4 boundary
+		0.95, 1.0, 1.05, 1.1, 1.15,        // Level 5 boundary
+		1.2, 1.25, 1.3, 1.35, 1.4, 1.5,    // Level 6 boundary and beyond
+	}
+
+	for _, score := range testScores {
+		multiplier := calculateRelevanceMultiplier(score)
+
+		// Verify monotonic increase (or equal for thresholds)
+		if multiplier < prevMultiplier {
+			t.Errorf("Non-monotonic multiplier: score %.2f -> %.3f, previous score %.2f -> %.3f",
+				score, multiplier, prevScore, prevMultiplier)
+		}
+
+		// Verify multiplier stays in valid range [0.0, 1.0]
+		if multiplier < 0.0 || multiplier > 1.0 {
+			t.Errorf("Multiplier out of range [0.0, 1.0]: score=%.2f, multiplier=%.3f",
+				score, multiplier)
+		}
+
+		prevMultiplier = multiplier
+		prevScore = score
+	}
+}
+
+// TestRelevanceMultiplier_StarredProjectBehavior tests that starred projects
+// get appropriate boosts based on search relevance
+func TestRelevanceMultiplier_StarredProjectBehavior(t *testing.T) {
+	starredBonus := 50
+
+	tests := []struct {
+		name        string
+		searchScore float64
+		expectedMin float64
+		expectedMax float64
+	}{
+		{
+			name:        "irrelevant starred project",
+			searchScore: 0.05,
+			expectedMin: 0.0,
+			expectedMax: 0.0,
+		},
+		{
+			name:        "weakly relevant starred project",
+			searchScore: 0.3,
+			expectedMin: 7.0,  // ~15% of 50
+			expectedMax: 12.0,
+		},
+		{
+			name:        "moderately relevant starred project",
+			searchScore: 0.6,
+			expectedMin: 17.0, // ~35% of 50
+			expectedMax: 23.0,
+		},
+		{
+			name:        "highly relevant starred project",
+			searchScore: 1.2,
+			expectedMin: 43.0, // ~88% of 50
+			expectedMax: 46.0,
+		},
+		{
+			name:        "very relevant starred project",
+			searchScore: 1.5,
+			expectedMin: 50.0, // full boost
+			expectedMax: 50.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			multiplier := calculateRelevanceMultiplier(tt.searchScore)
+			adjustedBonus := float64(starredBonus) * multiplier
+
+			if adjustedBonus < tt.expectedMin || adjustedBonus > tt.expectedMax {
+				t.Errorf("score=%.2f: adjusted bonus=%.1f, want range [%.1f, %.1f]",
+					tt.searchScore, adjustedBonus, tt.expectedMin, tt.expectedMax)
+			}
+
+			t.Logf("✓ score=%.2f: multiplier=%.3f, bonus %.0f -> %.1f",
+				tt.searchScore, multiplier, float64(starredBonus), adjustedBonus)
+		})
+	}
+}
