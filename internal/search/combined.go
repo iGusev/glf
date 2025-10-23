@@ -152,7 +152,7 @@ func CombinedSearchWithIndex(query string, projects []model.Project, historyScor
 		// Calculate starred bonus
 		starredBonus := 0
 		if fullProject.Starred {
-			starredBonus += 50
+			starredBonus += 3
 		}
 
 		// Apply context-dependent scaling based on search relevance
@@ -202,7 +202,7 @@ func allProjectsSortedByHistory(projects []model.Project, historyScores map[stri
 		// Calculate starred bonus
 		starredBonus := 0
 		if p.Starred {
-			starredBonus += 50
+			starredBonus += 3
 		}
 
 		results[i] = index.CombinedMatch{

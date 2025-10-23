@@ -25,8 +25,7 @@ const (
 
 // SelectionInfo tracks information about a selected item
 type SelectionInfo struct {
-	LastUsed time.Time // Last time selected
-	Count    int       // Number of times selected
+	Timestamps []time.Time // All selection timestamps (for accurate decay calculation)
 }
 
 // historyData is the serializable representation of history
@@ -52,6 +51,23 @@ func New(filePath string) *History {
 		filePath:        filePath,
 		dirty:           false,
 	}
+}
+
+// oldSelectionInfo is the previous format for migration
+type oldSelectionInfo struct {
+	LastUsed time.Time
+	Count    int
+}
+
+// migrateOldSelection converts old format to new format
+func migrateOldSelection(old oldSelectionInfo) SelectionInfo {
+	// Create timestamps array with all clicks at LastUsed time
+	// This is a best-effort migration - we don't have actual individual timestamps
+	timestamps := make([]time.Time, old.Count)
+	for i := 0; i < old.Count; i++ {
+		timestamps[i] = old.LastUsed
+	}
+	return SelectionInfo{Timestamps: timestamps}
 }
 
 // LoadAsync loads history from disk asynchronously
@@ -89,22 +105,67 @@ func (h *History) LoadAsync() <-chan error {
 		// Try to decode new format first
 		var data historyData
 		if err := decoder.Decode(&data); err != nil {
-			// Failed - might be old format, try decoding just selections map
+			// Failed - might be old format, try decoding
 			if _, seekErr := file.Seek(0, 0); seekErr != nil {
-				// Best effort reset; if it fails, decoder will fail below
-				_ = seekErr
+				// Can't seek - corrupt file, start fresh
+				h.selections = make(map[string]SelectionInfo)
+				h.querySelections = make(map[string]map[string]SelectionInfo)
+				h.dirty = true
+				errCh <- nil
+				return
 			}
 			decoder = gob.NewDecoder(file)
 
-			var oldSelections map[string]SelectionInfo
-			if err := decoder.Decode(&oldSelections); err != nil {
-				errCh <- fmt.Errorf("failed to decode history: %w", err)
-				return
+			// Try old historyData format
+			type oldHistoryData struct {
+				Selections      map[string]oldSelectionInfo
+				QuerySelections map[string]map[string]oldSelectionInfo
 			}
 
-			// Migrate old format to new
-			h.selections = oldSelections
-			h.querySelections = make(map[string]map[string]SelectionInfo)
+			var oldData oldHistoryData
+			if err := decoder.Decode(&oldData); err != nil {
+				// Try even older format (just map)
+				if _, seekErr := file.Seek(0, 0); seekErr != nil {
+					// Can't seek - corrupt file, start fresh
+					h.selections = make(map[string]SelectionInfo)
+					h.querySelections = make(map[string]map[string]SelectionInfo)
+					h.dirty = true
+					errCh <- nil
+					return
+				}
+				decoder = gob.NewDecoder(file)
+
+				var veryOldSelections map[string]oldSelectionInfo
+				if err := decoder.Decode(&veryOldSelections); err != nil {
+					// All formats failed - corrupt file, start fresh
+					h.selections = make(map[string]SelectionInfo)
+					h.querySelections = make(map[string]map[string]SelectionInfo)
+					h.dirty = true
+					errCh <- nil
+					return
+				}
+
+				// Migrate very old format to new
+				h.selections = make(map[string]SelectionInfo)
+				for item, oldInfo := range veryOldSelections {
+					h.selections[item] = migrateOldSelection(oldInfo)
+				}
+				h.querySelections = make(map[string]map[string]SelectionInfo)
+			} else {
+				// Migrate old historyData format to new
+				h.selections = make(map[string]SelectionInfo)
+				for item, oldInfo := range oldData.Selections {
+					h.selections[item] = migrateOldSelection(oldInfo)
+				}
+				h.querySelections = make(map[string]map[string]SelectionInfo)
+				for queryHash, oldQuerySelections := range oldData.QuerySelections {
+					h.querySelections[queryHash] = make(map[string]SelectionInfo)
+					for item, oldInfo := range oldQuerySelections {
+						h.querySelections[queryHash][item] = migrateOldSelection(oldInfo)
+					}
+				}
+			}
+			h.dirty = true // Mark dirty to trigger save with new format
 		} else {
 			// New format loaded successfully
 			h.selections = data.Selections
@@ -113,9 +174,8 @@ func (h *History) LoadAsync() <-chan error {
 			} else {
 				h.querySelections = make(map[string]map[string]SelectionInfo)
 			}
+			h.dirty = false
 		}
-
-		h.dirty = false
 
 		// Cleanup old entries (older than maxAgeDays)
 		// This is done in the loading goroutine to avoid blocking
@@ -146,8 +206,7 @@ func (h *History) RecordSelection(item string) {
 	defer h.mu.Unlock()
 
 	info := h.selections[item]
-	info.Count++
-	info.LastUsed = time.Now()
+	info.Timestamps = append(info.Timestamps, time.Now())
 	h.selections[item] = info
 	h.dirty = true
 }
@@ -164,7 +223,7 @@ func calculateDecayMultiplier(daysSinceLastUse float64) float64 {
 }
 
 // GetScore returns the frequency score for an item with exponential decay
-// Higher score = more frequently selected and more recent
+// Each timestamp contributes independently to the score
 // Entries older than 100 days return 0
 func (h *History) GetScore(item string) int {
 	h.mu.RLock()
@@ -175,20 +234,20 @@ func (h *History) GetScore(item string) int {
 		return 0
 	}
 
-	daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
+	score := 0.0
+	now := time.Now()
 
-	// Apply exponential decay
-	decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-	if decayMultiplier == 0 {
-		return 0
+	// Sum decay-adjusted scores for each timestamp
+	for _, timestamp := range info.Timestamps {
+		daysSinceUse := now.Sub(timestamp).Hours() / 24
+		decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+		if decayMultiplier > 0 {
+			score += 1.0 * decayMultiplier
+		}
 	}
 
-	// Base score from frequency with exponential decay
-	// Reduced multiplier to prevent dominating search relevance
-	score := float64(info.Count*2) * decayMultiplier
-
-	// Cap at 100 to prevent extreme dominance
-	const maxHistoryScore = 100
+	// Cap at 30 to prevent extreme dominance
+	const maxHistoryScore = 30
 	if score > maxHistoryScore {
 		score = maxHistoryScore
 	}
@@ -202,22 +261,27 @@ func (h *History) GetAllScores() map[string]int {
 	defer h.mu.RUnlock()
 
 	scores := make(map[string]int, len(h.selections))
-	for item := range h.selections {
-		info := h.selections[item]
-		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
+	now := time.Now()
 
-		// Apply exponential decay
-		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-		if decayMultiplier == 0 {
-			continue // Skip very old entries
+	for item, info := range h.selections {
+		score := 0.0
+
+		// Sum decay-adjusted scores for each timestamp
+		for _, timestamp := range info.Timestamps {
+			daysSinceUse := now.Sub(timestamp).Hours() / 24
+			decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+			if decayMultiplier > 0 {
+				score += 1.0 * decayMultiplier
+			}
 		}
 
-		// Base score from frequency with exponential decay
-		// Reduced multiplier to prevent dominating search relevance
-		score := float64(info.Count*2) * decayMultiplier
+		// Skip if score is 0 (all timestamps too old)
+		if score == 0 {
+			continue
+		}
 
-		// Cap at 100 to prevent extreme dominance
-		const maxHistoryScore = 100
+		// Cap at 30 to prevent extreme dominance
+		const maxHistoryScore = 30
 		if score > maxHistoryScore {
 			score = maxHistoryScore
 		}
@@ -312,7 +376,7 @@ func (h *History) Stats() (totalSelections int, uniqueItems int) {
 
 	uniqueItems = len(h.selections)
 	for _, info := range h.selections {
-		totalSelections += info.Count
+		totalSelections += len(info.Timestamps)
 	}
 
 	return totalSelections, uniqueItems
@@ -339,20 +403,46 @@ func (h *History) CleanupOldEntries() int {
 
 	// Clean global selections
 	for item, info := range h.selections {
-		daysSinceLastUse := now.Sub(info.LastUsed).Hours() / 24
-		if daysSinceLastUse > maxAgeDays {
+		// Filter out old timestamps
+		validTimestamps := make([]time.Time, 0, len(info.Timestamps))
+		for _, timestamp := range info.Timestamps {
+			daysSinceUse := now.Sub(timestamp).Hours() / 24
+			if daysSinceUse <= maxAgeDays {
+				validTimestamps = append(validTimestamps, timestamp)
+			} else {
+				removed++
+			}
+		}
+
+		// If no valid timestamps left, remove the item entirely
+		if len(validTimestamps) == 0 {
 			delete(h.selections, item)
-			removed++
+		} else if len(validTimestamps) < len(info.Timestamps) {
+			// Update with filtered timestamps
+			h.selections[item] = SelectionInfo{Timestamps: validTimestamps}
 		}
 	}
 
 	// Clean query-specific selections
 	for queryHash, querySelections := range h.querySelections {
 		for item, info := range querySelections {
-			daysSinceLastUse := now.Sub(info.LastUsed).Hours() / 24
-			if daysSinceLastUse > maxAgeDays {
+			// Filter out old timestamps
+			validTimestamps := make([]time.Time, 0, len(info.Timestamps))
+			for _, timestamp := range info.Timestamps {
+				daysSinceUse := now.Sub(timestamp).Hours() / 24
+				if daysSinceUse <= maxAgeDays {
+					validTimestamps = append(validTimestamps, timestamp)
+				} else {
+					removed++
+				}
+			}
+
+			// If no valid timestamps left, remove the item entirely
+			if len(validTimestamps) == 0 {
 				delete(querySelections, item)
-				removed++
+			} else if len(validTimestamps) < len(info.Timestamps) {
+				// Update with filtered timestamps
+				querySelections[item] = SelectionInfo{Timestamps: validTimestamps}
 			}
 		}
 		// Remove empty query hashes
@@ -388,8 +478,7 @@ func (h *History) RecordSelectionWithQuery(query, item string) {
 
 	// Update global history
 	globalInfo := h.selections[item]
-	globalInfo.Count++
-	globalInfo.LastUsed = now
+	globalInfo.Timestamps = append(globalInfo.Timestamps, now)
 	h.selections[item] = globalInfo
 
 	// Update query-specific history
@@ -401,8 +490,7 @@ func (h *History) RecordSelectionWithQuery(query, item string) {
 		}
 
 		queryInfo := h.querySelections[queryHash][item]
-		queryInfo.Count++
-		queryInfo.LastUsed = now
+		queryInfo.Timestamps = append(queryInfo.Timestamps, now)
 		h.querySelections[queryHash][item] = queryInfo
 	}
 
@@ -416,34 +504,37 @@ func (h *History) GetScoreForQuery(query, item string) int {
 	defer h.mu.RUnlock()
 
 	totalScore := 0.0
+	now := time.Now()
 
 	// Base global score with exponential decay
-	// Reduced multiplier to prevent dominating search relevance
 	if info, exists := h.selections[item]; exists {
-		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
-		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-		if decayMultiplier > 0 {
-			totalScore += float64(info.Count*2) * decayMultiplier
+		for _, timestamp := range info.Timestamps {
+			daysSinceUse := now.Sub(timestamp).Hours() / 24
+			decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+			if decayMultiplier > 0 {
+				totalScore += 1.0 * decayMultiplier
+			}
 		}
 	}
 
 	// Query-specific boost (2.5x multiplier) with exponential decay
-	// Reduced multiplier to prevent dominating search relevance
 	if query != "" {
 		queryHash := normalizeQuery(query)
 		if querySelections, exists := h.querySelections[queryHash]; exists {
 			if info, exists := querySelections[item]; exists {
-				daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
-				decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-				if decayMultiplier > 0 {
-					totalScore += float64(info.Count*5) * decayMultiplier
+				for _, timestamp := range info.Timestamps {
+					daysSinceUse := now.Sub(timestamp).Hours() / 24
+					decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+					if decayMultiplier > 0 {
+						totalScore += 2.5 * decayMultiplier
+					}
 				}
 			}
 		}
 	}
 
-	// Cap at 100 to prevent extreme dominance
-	const maxHistoryScore = 100
+	// Cap at 30 to prevent extreme dominance
+	const maxHistoryScore = 30
 	if totalScore > maxHistoryScore {
 		totalScore = maxHistoryScore
 	}
@@ -457,35 +548,37 @@ func (h *History) GetAllScoresForQuery(query string) map[string]int {
 	defer h.mu.RUnlock()
 
 	scores := make(map[string]float64)
+	now := time.Now()
 
 	// Add global scores with exponential decay
-	// Reduced multiplier to prevent dominating search relevance
-	for item := range h.selections {
-		info := h.selections[item]
-		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
-		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-		if decayMultiplier > 0 {
-			scores[item] = float64(info.Count*2) * decayMultiplier
+	for item, info := range h.selections {
+		for _, timestamp := range info.Timestamps {
+			daysSinceUse := now.Sub(timestamp).Hours() / 24
+			decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+			if decayMultiplier > 0 {
+				scores[item] += 1.0 * decayMultiplier
+			}
 		}
 	}
 
 	// Add query-specific boosts with exponential decay
-	// Reduced multiplier to prevent dominating search relevance
 	if query != "" {
 		queryHash := normalizeQuery(query)
 		if querySelections, exists := h.querySelections[queryHash]; exists {
 			for item, info := range querySelections {
-				daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
-				decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-				if decayMultiplier > 0 {
-					scores[item] += float64(info.Count*5) * decayMultiplier
+				for _, timestamp := range info.Timestamps {
+					daysSinceUse := now.Sub(timestamp).Hours() / 24
+					decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+					if decayMultiplier > 0 {
+						scores[item] += 2.5 * decayMultiplier
+					}
 				}
 			}
 		}
 	}
 
-	// Cap at 100 to prevent extreme dominance
-	const maxHistoryScore = 100
+	// Cap at 30 to prevent extreme dominance
+	const maxHistoryScore = 30
 	for item, score := range scores {
 		if score > maxHistoryScore {
 			scores[item] = maxHistoryScore
@@ -515,29 +608,47 @@ func (h *History) GetAllEntries() []Entry {
 	defer h.mu.RUnlock()
 
 	entries := make([]Entry, 0, len(h.selections))
+	now := time.Now()
 
 	for item, info := range h.selections {
-		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
-		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
-
-		// Skip very old entries
-		if decayMultiplier == 0 {
+		if len(info.Timestamps) == 0 {
 			continue
 		}
 
-		score := int(float64(info.Count*2) * decayMultiplier)
+		// Calculate score
+		score := 0.0
+		for _, timestamp := range info.Timestamps {
+			daysSinceUse := now.Sub(timestamp).Hours() / 24
+			decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+			if decayMultiplier > 0 {
+				score += 1.0 * decayMultiplier
+			}
+		}
 
-		// Cap at 100 to prevent extreme dominance
-		const maxHistoryScore = 100
+		// Skip if score is 0 (all timestamps too old)
+		if score == 0 {
+			continue
+		}
+
+		// Cap at 30
+		const maxHistoryScore = 30
 		if score > maxHistoryScore {
 			score = maxHistoryScore
 		}
 
+		// Find last used time (most recent timestamp)
+		lastUsed := info.Timestamps[0]
+		for _, t := range info.Timestamps {
+			if t.After(lastUsed) {
+				lastUsed = t
+			}
+		}
+
 		entries = append(entries, Entry{
 			ProjectPath: item,
-			Count:       info.Count,
-			LastUsed:    info.LastUsed,
-			Score:       score,
+			Count:       len(info.Timestamps),
+			LastUsed:    lastUsed,
+			Score:       int(score),
 		})
 	}
 
