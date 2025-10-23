@@ -1066,3 +1066,288 @@ func TestRelevanceMultiplier_StarredProjectBehavior(t *testing.T) {
 		})
 	}
 }
+
+// TestRelevanceMultiplier_AllSixGradations tests each of the 6 gradation levels in detail
+func TestRelevanceMultiplier_AllSixGradations(t *testing.T) {
+	tests := []struct {
+		name        string
+		scoreRange  string
+		testScores  []float64
+		expectedMin float64
+		expectedMax float64
+	}{
+		{
+			name:        "Level 1: Very slow ramp (0.10-0.30)",
+			scoreRange:  "0.10-0.30",
+			testScores:  []float64{0.10, 0.15, 0.20, 0.25, 0.29},
+			expectedMin: 0.0,
+			expectedMax: 0.16, // Slightly higher to accommodate actual values
+		},
+		{
+			name:        "Level 2: Slow ramp (0.30-0.50)",
+			scoreRange:  "0.30-0.50",
+			testScores:  []float64{0.30, 0.35, 0.40, 0.45, 0.49},
+			expectedMin: 0.14, // Start lower to include boundary
+			expectedMax: 0.31, // Slightly higher
+		},
+		{
+			name:        "Level 3: Moderate ramp (0.50-0.70)",
+			scoreRange:  "0.50-0.70",
+			testScores:  []float64{0.50, 0.55, 0.60, 0.65, 0.69},
+			expectedMin: 0.29, // Start lower to include boundary
+			expectedMax: 0.51, // Slightly higher
+		},
+		{
+			name:        "Level 4: Medium-fast ramp (0.70-0.90)",
+			scoreRange:  "0.70-0.90",
+			testScores:  []float64{0.70, 0.75, 0.80, 0.85, 0.89},
+			expectedMin: 0.49, // Start lower to include boundary
+			expectedMax: 0.71, // Slightly higher
+		},
+		{
+			name:        "Level 5: Fast ramp (0.90-1.15)",
+			scoreRange:  "0.90-1.15",
+			testScores:  []float64{0.90, 0.95, 1.00, 1.05, 1.10, 1.14},
+			expectedMin: 0.69, // Start lower to include boundary
+			expectedMax: 0.86, // Slightly higher
+		},
+		{
+			name:        "Level 6: Very fast ramp (1.15-1.40)",
+			scoreRange:  "1.15-1.40",
+			testScores:  []float64{1.15, 1.20, 1.25, 1.30, 1.35, 1.39},
+			expectedMin: 0.84, // Start lower to include boundary
+			expectedMax: 1.00,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, score := range tt.testScores {
+				multiplier := calculateRelevanceMultiplier(score)
+
+				// Check if multiplier is within expected range for this level
+				if multiplier < tt.expectedMin || multiplier > tt.expectedMax {
+					t.Errorf("%s: score=%.2f, multiplier=%.3f, want range [%.2f, %.2f]",
+						tt.scoreRange, score, multiplier, tt.expectedMin, tt.expectedMax)
+				}
+
+				// Verify multiplier is in valid range [0.0, 1.0]
+				if multiplier < 0.0 || multiplier > 1.0 {
+					t.Errorf("Multiplier out of bounds: score=%.2f, multiplier=%.3f",
+						score, multiplier)
+				}
+			}
+		})
+	}
+}
+
+// TestRelevanceMultiplier_GradationBoundaries tests exact behavior at boundaries between levels
+func TestRelevanceMultiplier_GradationBoundaries(t *testing.T) {
+	tests := []struct {
+		name         string
+		score        float64
+		description  string
+		minMultiplier float64
+		maxMultiplier float64
+	}{
+		{
+			name:         "boundary: threshold to level 1",
+			score:        0.10,
+			description:  "Exact minimum threshold - should give zero boost",
+			minMultiplier: 0.0,
+			maxMultiplier: 0.001,
+		},
+		{
+			name:         "boundary: level 1 to level 2",
+			score:        0.30,
+			description:  "Transition from very slow to slow ramp",
+			minMultiplier: 0.14,
+			maxMultiplier: 0.16,
+		},
+		{
+			name:         "boundary: level 2 to level 3",
+			score:        0.50,
+			description:  "Transition from slow to moderate ramp",
+			minMultiplier: 0.29,
+			maxMultiplier: 0.31,
+		},
+		{
+			name:         "boundary: level 3 to level 4",
+			score:        0.70,
+			description:  "Transition from moderate to medium-fast ramp",
+			minMultiplier: 0.49,
+			maxMultiplier: 0.51,
+		},
+		{
+			name:         "boundary: level 4 to level 5",
+			score:        0.90,
+			description:  "Transition from medium-fast to fast ramp",
+			minMultiplier: 0.69,
+			maxMultiplier: 0.71,
+		},
+		{
+			name:         "boundary: level 5 to level 6",
+			score:        1.15,
+			description:  "Transition from fast to very fast ramp",
+			minMultiplier: 0.84,
+			maxMultiplier: 0.86,
+		},
+		{
+			name:         "boundary: level 6 to full boost",
+			score:        1.40,
+			description:  "Exact full boost threshold",
+			minMultiplier: 0.999,
+			maxMultiplier: 1.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			multiplier := calculateRelevanceMultiplier(tt.score)
+
+			if multiplier < tt.minMultiplier || multiplier > tt.maxMultiplier {
+				t.Errorf("%s (score=%.2f): multiplier=%.3f, want range [%.3f, %.3f]",
+					tt.description, tt.score, multiplier, tt.minMultiplier, tt.maxMultiplier)
+			}
+
+			t.Logf("✓ %s: score=%.2f -> multiplier=%.3f", tt.name, tt.score, multiplier)
+		})
+	}
+}
+
+// TestRelevanceMultiplier_EdgeCases tests edge cases and extreme values
+func TestRelevanceMultiplier_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		score    float64
+		expected float64
+	}{
+		{
+			name:     "zero score",
+			score:    0.0,
+			expected: 0.0,
+		},
+		{
+			name:     "negative score (should still return 0)",
+			score:    -1.0,
+			expected: 0.0,
+		},
+		{
+			name:     "just below threshold",
+			score:    0.09,
+			expected: 0.0,
+		},
+		{
+			name:     "just above threshold",
+			score:    0.11,
+			expected: 0.0, // Still in very slow ramp, close to 0
+		},
+		{
+			name:     "very high score",
+			score:    10.0,
+			expected: 1.0,
+		},
+		{
+			name:     "exact full boost",
+			score:    1.4,
+			expected: 1.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			multiplier := calculateRelevanceMultiplier(tt.score)
+
+			// For most tests, we check equality or proximity
+			tolerance := 0.05
+			if tt.expected == 0.0 || tt.expected == 1.0 {
+				tolerance = 0.01 // Stricter for boundaries
+			}
+
+			if multiplier < tt.expected-tolerance || multiplier > tt.expected+tolerance {
+				t.Errorf("score=%.2f: multiplier=%.3f, want ~%.3f (±%.2f)",
+					tt.score, multiplier, tt.expected, tolerance)
+			}
+		})
+	}
+}
+
+// TestRelevanceMultiplier_HistoryAndStarredInteraction tests realistic scenarios
+// with both history and starred bonuses
+func TestRelevanceMultiplier_HistoryAndStarredInteraction(t *testing.T) {
+	tests := []struct {
+		name           string
+		searchScore    float64
+		historyScore   int
+		starredBonus   int
+		expectedMinTotal float64
+		expectedMaxTotal float64
+	}{
+		{
+			name:           "irrelevant with high history and starred",
+			searchScore:    0.05,
+			historyScore:   100,
+			starredBonus:   50,
+			expectedMinTotal: 0.04, // Only search score, no bonuses
+			expectedMaxTotal: 0.06,
+		},
+		{
+			name:           "weak match with history and starred",
+			searchScore:    0.35,
+			historyScore:   50,
+			starredBonus:   50,
+			expectedMinTotal: 0.35 + (100 * 0.15), // Score + ~15% of bonuses
+			expectedMaxTotal: 0.35 + (100 * 0.20),
+		},
+		{
+			name:           "decent match with history and starred",
+			searchScore:    0.60,
+			historyScore:   50,
+			starredBonus:   50,
+			expectedMinTotal: 0.60 + (100 * 0.35), // Score + ~40% of bonuses
+			expectedMaxTotal: 0.60 + (100 * 0.45),
+		},
+		{
+			name:           "good match with history and starred",
+			searchScore:    1.00,
+			historyScore:   50,
+			starredBonus:   50,
+			expectedMinTotal: 1.00 + (100 * 0.70), // Score + ~75% of bonuses
+			expectedMaxTotal: 1.00 + (100 * 0.80),
+		},
+		{
+			name:           "excellent match with history and starred",
+			searchScore:    1.35,
+			historyScore:   50,
+			starredBonus:   50,
+			expectedMinTotal: 1.35 + (100 * 0.90), // Score + ~95% of bonuses
+			expectedMaxTotal: 1.35 + (100 * 0.98),
+		},
+		{
+			name:           "highly relevant with full bonuses",
+			searchScore:    1.50,
+			historyScore:   50,
+			starredBonus:   50,
+			expectedMinTotal: 1.50 + 100, // Score + full bonuses (100%)
+			expectedMaxTotal: 1.50 + 100,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			multiplier := calculateRelevanceMultiplier(tt.searchScore)
+			adjustedHistory := float64(tt.historyScore) * multiplier
+			adjustedStarred := float64(tt.starredBonus) * multiplier
+			totalScore := tt.searchScore + adjustedHistory + adjustedStarred
+
+			if totalScore < tt.expectedMinTotal || totalScore > tt.expectedMaxTotal {
+				t.Errorf("score=%.2f H:%d St:%d: total=%.2f, want range [%.2f, %.2f]",
+					tt.searchScore, tt.historyScore, tt.starredBonus,
+					totalScore, tt.expectedMinTotal, tt.expectedMaxTotal)
+			}
+
+			t.Logf("✓ S:%.2f H:%d St:%d M:%.3f -> Total:%.2f",
+				tt.searchScore, tt.historyScore, tt.starredBonus, multiplier, totalScore)
+		})
+	}
+}
