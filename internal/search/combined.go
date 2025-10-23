@@ -10,6 +10,60 @@ import (
 	"github.com/igusev/glf/internal/model"
 )
 
+// calculateRelevanceMultiplier returns a multiplier [0.0, 1.0] based on search relevance
+// This prevents history/starred bonuses from overwhelming irrelevant search results
+//
+// Logic (based on real data showing max scores ~1.4-1.6):
+//   - searchScore < 0.1:  multiplier = 0.0 (too irrelevant, no boost)
+//   - searchScore >= 1.4: multiplier = 1.0 (sufficiently relevant, full boost)
+//   - 0.1 <= searchScore < 1.4: non-linear curve with gradations
+//
+// Gradations provide smoother transitions:
+//   - 0.1-0.4: slow ramp (0.0 → 0.3) - minimal boost for weak matches
+//   - 0.4-0.8: medium ramp (0.3 → 0.6) - moderate boost for decent matches
+//   - 0.8-1.4: fast ramp (0.6 → 1.0) - strong boost for good matches
+//
+// Example: if searchScore = 0.012 (very low relevance), multiplier = 0.0
+//
+//	History boost of 57 and starred boost of 50 would be zeroed out,
+//	preventing them from overwhelming the search score
+func calculateRelevanceMultiplier(searchScore float64) float64 {
+	// Minimum threshold: scores below this get no history/starred boost
+	const minRelevanceThreshold = 0.1
+
+	// Full boost threshold: scores at or above this get full history/starred boost
+	// Based on real data showing max scores around 1.4-1.6
+	const fullBoostThreshold = 1.4
+
+	if searchScore < minRelevanceThreshold {
+		// Too irrelevant - no history/starred boost
+		return 0.0
+	}
+
+	if searchScore >= fullBoostThreshold {
+		// Sufficiently relevant - full history/starred boost
+		return 1.0
+	}
+
+	// Non-linear curve with gradations for smoother transitions
+	// Normalize score to [0, 1] range
+	normalized := (searchScore - minRelevanceThreshold) / (fullBoostThreshold - minRelevanceThreshold)
+
+	// Apply piece-wise function with different slopes for gradations
+	// This creates a more nuanced curve than simple linear interpolation
+	switch {
+	case normalized < 0.231: // 0.1 to 0.4 range (slow ramp)
+		// Minimal boost for weak matches
+		return normalized * 1.3 // 0.0 → 0.3
+	case normalized < 0.538: // 0.4 to 0.8 range (medium ramp)
+		// Moderate boost for decent matches
+		return 0.3 + (normalized-0.231)*0.976 // 0.3 → 0.6
+	default: // 0.8 to 1.4 range (fast ramp)
+		// Strong boost for good matches
+		return 0.6 + (normalized-0.538)*0.866 // 0.6 → 1.0
+	}
+}
+
 // CombinedSearch performs unified search using Bleve across project names, paths, and descriptions
 // For empty queries, returns all projects sorted by history
 // If descIndex is provided, it will be used; otherwise a new index will be opened
@@ -89,9 +143,18 @@ func CombinedSearchWithIndex(query string, projects []model.Project, historyScor
 			starredBonus += 50
 		}
 
-		// Calculate total score (search + history + starred)
-		// History scores are already reduced by 10x in history.go
-		totalScore := match.Score + float64(historyScore) + float64(starredBonus)
+		// Apply context-dependent scaling based on search relevance
+		// This prevents history/starred from dominating when search relevance is low
+		relevanceMultiplier := calculateRelevanceMultiplier(match.Score)
+		adjustedHistoryScore := float64(historyScore) * relevanceMultiplier
+		adjustedStarredBonus := float64(starredBonus) * relevanceMultiplier
+
+		// Calculate total score (search + context-adjusted history + starred)
+		// Example: searchScore=0.012 (too low) -> multiplier=0.0 -> no history/starred boost
+		//          searchScore=0.5 (moderate) -> multiplier≈0.34 -> partial boost
+		//          searchScore=1.2 (good) -> multiplier≈0.92 -> strong boost
+		//          searchScore=1.4+ (high) -> multiplier=1.0 -> full boost
+		totalScore := match.Score + adjustedHistoryScore + adjustedStarredBonus
 
 		results = append(results, index.CombinedMatch{
 			Project:      fullProject,
