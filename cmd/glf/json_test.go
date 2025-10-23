@@ -1111,9 +1111,16 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 		t.Error("Expected 'backend/api-server' in results")
 	}
 
-	// Score should be significantly boosted by history (>100 from 10 selections)
-	if apiServerScore < 100 {
-		t.Errorf("Expected history-boosted score >100, got %.2f", apiServerScore)
+	// Score should be boosted by history (>50 from 10 selections)
+	// With new multipliers: global (10*2=20) + query-specific (10*5=50) + search score
+	// Expected range: ~70-100 depending on search relevance
+	if apiServerScore < 50 {
+		t.Errorf("Expected history-boosted score >50, got %.2f", apiServerScore)
+	}
+
+	// History is now capped at 100 total to prevent dominance
+	if apiServerScore > 150 {
+		t.Errorf("Expected history score to be capped appropriately, got %.2f (too high)", apiServerScore)
 	}
 }
 

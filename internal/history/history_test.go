@@ -20,10 +20,10 @@ func TestHistory_RecordAndGetScore(t *testing.T) {
 	// Record selection
 	h.RecordSelection("project-a")
 
-	// Score should now be ~10 (1 selection * 10) with minimal decay (truncated to int)
+	// Score should now be ~2 (1 selection * 2) with minimal decay (truncated to int)
 	score := h.GetScore("project-a")
-	if score < 9 {
-		t.Errorf("Expected score >= 9, got %d", score)
+	if score < 1 {
+		t.Errorf("Expected score >= 1, got %d", score)
 	}
 
 	// Multiple selections increase score
@@ -58,13 +58,13 @@ func TestHistory_SaveAndLoad(t *testing.T) {
 		t.Fatalf("Failed to load history: %v", err)
 	}
 
-	// Verify data (scores reduced by 10x with decay: 2 selections ~19, 1 selection ~9)
-	if score := h2.GetScore("project-a"); score < 19 {
-		t.Errorf("Expected score >= 19 for project-a, got %d", score)
+	// Verify data (scores with new 2x multiplier and decay: 2 selections ~3, 1 selection ~1)
+	if score := h2.GetScore("project-a"); score < 3 {
+		t.Errorf("Expected score >= 3 for project-a, got %d", score)
 	}
 
-	if score := h2.GetScore("project-b"); score < 9 {
-		t.Errorf("Expected score >= 9 for project-b, got %d", score)
+	if score := h2.GetScore("project-b"); score < 1 {
+		t.Errorf("Expected score >= 1 for project-b, got %d", score)
 	}
 }
 
@@ -119,23 +119,26 @@ func TestHistory_RecencyBoost(t *testing.T) {
 
 	h := New(historyPath)
 
-	// Record old selection
+	// Record old selection (with more selections to make difference visible after int truncation)
 	h.mu.Lock()
 	h.selections["old-project"] = SelectionInfo{
-		Count:    1,
+		Count:    3,                                    // Increased to make difference visible: 3*2*0.5 = 3 vs 3*2*1.0 = 6
 		LastUsed: time.Now().Add(-30 * 24 * time.Hour), // 30 days ago
 	}
 	h.dirty = true
 	h.mu.Unlock()
 
-	// Record recent selection
+	// Record recent selections (same count as old)
+	h.RecordSelection("new-project")
+	h.RecordSelection("new-project")
 	h.RecordSelection("new-project")
 
 	oldScore := h.GetScore("old-project")
 	newScore := h.GetScore("new-project")
 
 	// New project should have higher score due to recency boost
-	// Both have 1 selection, but new one gets recency bonus
+	// Both have 3 selections, but new one gets recency bonus (decay multiplier ~1.0 vs ~0.5)
+	// Old: 3*2*0.5 = 3, New: 3*2*1.0 = 6
 	if newScore <= oldScore {
 		t.Errorf("Recent item should have higher score. Old: %d, New: %d", oldScore, newScore)
 	}
@@ -271,9 +274,9 @@ func TestHistory_RecordSelectionWithQuery(t *testing.T) {
 	h.RecordSelectionWithQuery("backend", "project-api")
 	h.RecordSelectionWithQuery("frontend", "project-web")
 
-	// Verify global history
-	if score := h.GetScore("project-api"); score < 19 {
-		t.Errorf("Expected global score >= 19 for project-api, got %d", score)
+	// Verify global history (2 selections * 2 = ~4 with decay ~3)
+	if score := h.GetScore("project-api"); score < 3 {
+		t.Errorf("Expected global score >= 3 for project-api, got %d", score)
 	}
 
 	// Verify query-specific history exists
@@ -349,10 +352,10 @@ func TestHistory_QueryBoostWithEmptyQuery(t *testing.T) {
 
 	h.RecordSelection("project-a")
 
-	// Empty query should work without errors
+	// Empty query should work without errors (1 selection * 2 = ~2 with decay ~1)
 	score := h.GetScoreForQuery("", "project-a")
-	if score < 9 {
-		t.Errorf("Expected score >= 9 even with empty query, got %d", score)
+	if score < 1 {
+		t.Errorf("Expected score >= 1 even with empty query, got %d", score)
 	}
 
 	scores := h.GetAllScoresForQuery("")

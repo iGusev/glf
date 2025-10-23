@@ -184,8 +184,14 @@ func (h *History) GetScore(item string) int {
 	}
 
 	// Base score from frequency with exponential decay
-	// Reduced by 10x to prevent dominating search relevance
-	score := float64(info.Count*10) * decayMultiplier
+	// Reduced multiplier to prevent dominating search relevance
+	score := float64(info.Count*2) * decayMultiplier
+
+	// Cap at 100 to prevent extreme dominance
+	const maxHistoryScore = 100
+	if score > maxHistoryScore {
+		score = maxHistoryScore
+	}
 
 	return int(score)
 }
@@ -207,8 +213,15 @@ func (h *History) GetAllScores() map[string]int {
 		}
 
 		// Base score from frequency with exponential decay
-		// Reduced by 10x to prevent dominating search relevance
-		score := float64(info.Count*10) * decayMultiplier
+		// Reduced multiplier to prevent dominating search relevance
+		score := float64(info.Count*2) * decayMultiplier
+
+		// Cap at 100 to prevent extreme dominance
+		const maxHistoryScore = 100
+		if score > maxHistoryScore {
+			score = maxHistoryScore
+		}
+
 		scores[item] = int(score)
 	}
 
@@ -397,7 +410,7 @@ func (h *History) RecordSelectionWithQuery(query, item string) {
 }
 
 // GetScoreForQuery returns the score for an item considering query-specific history with exponential decay
-// Query-specific selections get a significant boost (3x multiplier)
+// Query-specific selections get a moderate boost (2.5x multiplier over global)
 func (h *History) GetScoreForQuery(query, item string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -405,17 +418,17 @@ func (h *History) GetScoreForQuery(query, item string) int {
 	totalScore := 0.0
 
 	// Base global score with exponential decay
-	// Reduced by 10x to prevent dominating search relevance
+	// Reduced multiplier to prevent dominating search relevance
 	if info, exists := h.selections[item]; exists {
 		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
 		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
 		if decayMultiplier > 0 {
-			totalScore += float64(info.Count*10) * decayMultiplier
+			totalScore += float64(info.Count*2) * decayMultiplier
 		}
 	}
 
-	// Query-specific boost (3x multiplier) with exponential decay
-	// Reduced by 10x to prevent dominating search relevance
+	// Query-specific boost (2.5x multiplier) with exponential decay
+	// Reduced multiplier to prevent dominating search relevance
 	if query != "" {
 		queryHash := normalizeQuery(query)
 		if querySelections, exists := h.querySelections[queryHash]; exists {
@@ -423,10 +436,16 @@ func (h *History) GetScoreForQuery(query, item string) int {
 				daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
 				decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
 				if decayMultiplier > 0 {
-					totalScore += float64(info.Count*30) * decayMultiplier
+					totalScore += float64(info.Count*5) * decayMultiplier
 				}
 			}
 		}
+	}
+
+	// Cap at 100 to prevent extreme dominance
+	const maxHistoryScore = 100
+	if totalScore > maxHistoryScore {
+		totalScore = maxHistoryScore
 	}
 
 	return int(totalScore)
@@ -440,18 +459,18 @@ func (h *History) GetAllScoresForQuery(query string) map[string]int {
 	scores := make(map[string]float64)
 
 	// Add global scores with exponential decay
-	// Reduced by 10x to prevent dominating search relevance
+	// Reduced multiplier to prevent dominating search relevance
 	for item := range h.selections {
 		info := h.selections[item]
 		daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
 		decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
 		if decayMultiplier > 0 {
-			scores[item] = float64(info.Count*10) * decayMultiplier
+			scores[item] = float64(info.Count*2) * decayMultiplier
 		}
 	}
 
 	// Add query-specific boosts with exponential decay
-	// Reduced by 10x to prevent dominating search relevance
+	// Reduced multiplier to prevent dominating search relevance
 	if query != "" {
 		queryHash := normalizeQuery(query)
 		if querySelections, exists := h.querySelections[queryHash]; exists {
@@ -459,9 +478,17 @@ func (h *History) GetAllScoresForQuery(query string) map[string]int {
 				daysSinceLastUse := time.Since(info.LastUsed).Hours() / 24
 				decayMultiplier := calculateDecayMultiplier(daysSinceLastUse)
 				if decayMultiplier > 0 {
-					scores[item] += float64(info.Count*30) * decayMultiplier
+					scores[item] += float64(info.Count*5) * decayMultiplier
 				}
 			}
+		}
+	}
+
+	// Cap at 100 to prevent extreme dominance
+	const maxHistoryScore = 100
+	for item, score := range scores {
+		if score > maxHistoryScore {
+			scores[item] = maxHistoryScore
 		}
 	}
 
@@ -498,7 +525,13 @@ func (h *History) GetAllEntries() []Entry {
 			continue
 		}
 
-		score := int(float64(info.Count*10) * decayMultiplier)
+		score := int(float64(info.Count*2) * decayMultiplier)
+
+		// Cap at 100 to prevent extreme dominance
+		const maxHistoryScore = 100
+		if score > maxHistoryScore {
+			score = maxHistoryScore
+		}
 
 		entries = append(entries, Entry{
 			ProjectPath: item,

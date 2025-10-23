@@ -816,11 +816,11 @@ func TestCombinedSearchWithIndex_OpensAndClosesIndex(t *testing.T) {
 // which applies context-aware scaling to history/starred bonuses
 func TestCalculateRelevanceMultiplier(t *testing.T) {
 	tests := []struct {
-		name           string
-		searchScore    float64
-		expectedMin    float64
-		expectedMax    float64
-		description    string
+		name        string
+		searchScore float64
+		expectedMin float64
+		expectedMax float64
+		description string
 	}{
 		{
 			name:        "below minimum threshold",
@@ -980,12 +980,12 @@ func TestRelevanceMultiplier_GradationSmoothness(t *testing.T) {
 
 	// Test at gradation boundaries and between them
 	testScores := []float64{
-		0.05, 0.1, 0.15, 0.2, 0.25, 0.3,  // Level 1 boundary
-		0.35, 0.4, 0.45, 0.5,               // Level 2 boundary
-		0.55, 0.6, 0.65, 0.7,               // Level 3 boundary
-		0.75, 0.8, 0.85, 0.9,               // Level 4 boundary
-		0.95, 1.0, 1.05, 1.1, 1.15,        // Level 5 boundary
-		1.2, 1.25, 1.3, 1.35, 1.4, 1.5,    // Level 6 boundary and beyond
+		0.05, 0.1, 0.15, 0.2, 0.25, 0.3, // Level 1 boundary
+		0.35, 0.4, 0.45, 0.5, // Level 2 boundary
+		0.55, 0.6, 0.65, 0.7, // Level 3 boundary
+		0.75, 0.8, 0.85, 0.9, // Level 4 boundary
+		0.95, 1.0, 1.05, 1.1, 1.15, // Level 5 boundary
+		1.2, 1.25, 1.3, 1.35, 1.4, 1.5, // Level 6 boundary and beyond
 	}
 
 	for _, score := range testScores {
@@ -1028,7 +1028,7 @@ func TestRelevanceMultiplier_StarredProjectBehavior(t *testing.T) {
 		{
 			name:        "weakly relevant starred project",
 			searchScore: 0.3,
-			expectedMin: 7.0,  // ~15% of 50
+			expectedMin: 7.0, // ~15% of 50
 			expectedMax: 12.0,
 		},
 		{
@@ -1144,58 +1144,58 @@ func TestRelevanceMultiplier_AllSixGradations(t *testing.T) {
 // TestRelevanceMultiplier_GradationBoundaries tests exact behavior at boundaries between levels
 func TestRelevanceMultiplier_GradationBoundaries(t *testing.T) {
 	tests := []struct {
-		name         string
-		score        float64
-		description  string
+		name          string
+		score         float64
+		description   string
 		minMultiplier float64
 		maxMultiplier float64
 	}{
 		{
-			name:         "boundary: threshold to level 1",
-			score:        0.10,
-			description:  "Exact minimum threshold - should give zero boost",
+			name:          "boundary: threshold to level 1",
+			score:         0.10,
+			description:   "Exact minimum threshold - should give zero boost",
 			minMultiplier: 0.0,
 			maxMultiplier: 0.001,
 		},
 		{
-			name:         "boundary: level 1 to level 2",
-			score:        0.30,
-			description:  "Transition from very slow to slow ramp",
+			name:          "boundary: level 1 to level 2",
+			score:         0.30,
+			description:   "Transition from very slow to slow ramp",
 			minMultiplier: 0.14,
 			maxMultiplier: 0.16,
 		},
 		{
-			name:         "boundary: level 2 to level 3",
-			score:        0.50,
-			description:  "Transition from slow to moderate ramp",
+			name:          "boundary: level 2 to level 3",
+			score:         0.50,
+			description:   "Transition from slow to moderate ramp",
 			minMultiplier: 0.29,
 			maxMultiplier: 0.31,
 		},
 		{
-			name:         "boundary: level 3 to level 4",
-			score:        0.70,
-			description:  "Transition from moderate to medium-fast ramp",
+			name:          "boundary: level 3 to level 4",
+			score:         0.70,
+			description:   "Transition from moderate to medium-fast ramp",
 			minMultiplier: 0.49,
 			maxMultiplier: 0.51,
 		},
 		{
-			name:         "boundary: level 4 to level 5",
-			score:        0.90,
-			description:  "Transition from medium-fast to fast ramp",
+			name:          "boundary: level 4 to level 5",
+			score:         0.90,
+			description:   "Transition from medium-fast to fast ramp",
 			minMultiplier: 0.69,
 			maxMultiplier: 0.71,
 		},
 		{
-			name:         "boundary: level 5 to level 6",
-			score:        1.15,
-			description:  "Transition from fast to very fast ramp",
+			name:          "boundary: level 5 to level 6",
+			score:         1.15,
+			description:   "Transition from fast to very fast ramp",
 			minMultiplier: 0.84,
 			maxMultiplier: 0.86,
 		},
 		{
-			name:         "boundary: level 6 to full boost",
-			score:        1.40,
-			description:  "Exact full boost threshold",
+			name:          "boundary: level 6 to full boost",
+			score:         1.40,
+			description:   "Exact full boost threshold",
 			minMultiplier: 0.999,
 			maxMultiplier: 1.0,
 		},
@@ -1276,58 +1276,58 @@ func TestRelevanceMultiplier_EdgeCases(t *testing.T) {
 // with both history and starred bonuses
 func TestRelevanceMultiplier_HistoryAndStarredInteraction(t *testing.T) {
 	tests := []struct {
-		name           string
-		searchScore    float64
-		historyScore   int
-		starredBonus   int
+		name             string
+		searchScore      float64
+		historyScore     int
+		starredBonus     int
 		expectedMinTotal float64
 		expectedMaxTotal float64
 	}{
 		{
-			name:           "irrelevant with high history and starred",
-			searchScore:    0.05,
-			historyScore:   100,
-			starredBonus:   50,
+			name:             "irrelevant with high history and starred",
+			searchScore:      0.05,
+			historyScore:     100,
+			starredBonus:     50,
 			expectedMinTotal: 0.04, // Only search score, no bonuses
 			expectedMaxTotal: 0.06,
 		},
 		{
-			name:           "weak match with history and starred",
-			searchScore:    0.35,
-			historyScore:   50,
-			starredBonus:   50,
+			name:             "weak match with history and starred",
+			searchScore:      0.35,
+			historyScore:     50,
+			starredBonus:     50,
 			expectedMinTotal: 0.35 + (100 * 0.15), // Score + ~15% of bonuses
 			expectedMaxTotal: 0.35 + (100 * 0.20),
 		},
 		{
-			name:           "decent match with history and starred",
-			searchScore:    0.60,
-			historyScore:   50,
-			starredBonus:   50,
+			name:             "decent match with history and starred",
+			searchScore:      0.60,
+			historyScore:     50,
+			starredBonus:     50,
 			expectedMinTotal: 0.60 + (100 * 0.35), // Score + ~40% of bonuses
 			expectedMaxTotal: 0.60 + (100 * 0.45),
 		},
 		{
-			name:           "good match with history and starred",
-			searchScore:    1.00,
-			historyScore:   50,
-			starredBonus:   50,
+			name:             "good match with history and starred",
+			searchScore:      1.00,
+			historyScore:     50,
+			starredBonus:     50,
 			expectedMinTotal: 1.00 + (100 * 0.70), // Score + ~75% of bonuses
 			expectedMaxTotal: 1.00 + (100 * 0.80),
 		},
 		{
-			name:           "excellent match with history and starred",
-			searchScore:    1.35,
-			historyScore:   50,
-			starredBonus:   50,
+			name:             "excellent match with history and starred",
+			searchScore:      1.35,
+			historyScore:     50,
+			starredBonus:     50,
 			expectedMinTotal: 1.35 + (100 * 0.90), // Score + ~95% of bonuses
 			expectedMaxTotal: 1.35 + (100 * 0.98),
 		},
 		{
-			name:           "highly relevant with full bonuses",
-			searchScore:    1.50,
-			historyScore:   50,
-			starredBonus:   50,
+			name:             "highly relevant with full bonuses",
+			searchScore:      1.50,
+			historyScore:     50,
+			starredBonus:     50,
 			expectedMinTotal: 1.50 + 100, // Score + full bonuses (100%)
 			expectedMaxTotal: 1.50 + 100,
 		},
