@@ -16,12 +16,15 @@ import (
 // Logic (based on real data showing max scores ~1.4-1.6):
 //   - searchScore < 0.1:  multiplier = 0.0 (too irrelevant, no boost)
 //   - searchScore >= 1.4: multiplier = 1.0 (sufficiently relevant, full boost)
-//   - 0.1 <= searchScore < 1.4: non-linear curve with gradations
+//   - 0.1 <= searchScore < 1.4: non-linear curve with 6 gradations
 //
-// Gradations provide smoother transitions:
-//   - 0.1-0.4: slow ramp (0.0 → 0.3) - minimal boost for weak matches
-//   - 0.4-0.8: medium ramp (0.3 → 0.6) - moderate boost for decent matches
-//   - 0.8-1.4: fast ramp (0.6 → 1.0) - strong boost for good matches
+// Gradations provide very smooth transitions (6 levels):
+//   - 0.10-0.30: very slow ramp (0.00 → 0.15) - minimal boost for very weak matches
+//   - 0.30-0.50: slow ramp (0.15 → 0.30) - small boost for weak matches
+//   - 0.50-0.70: moderate ramp (0.30 → 0.50) - moderate boost for decent matches
+//   - 0.70-0.90: medium-fast ramp (0.50 → 0.70) - good boost for solid matches
+//   - 0.90-1.15: fast ramp (0.70 → 0.85) - strong boost for very good matches
+//   - 1.15-1.40: very fast ramp (0.85 → 1.00) - full boost for excellent matches
 //
 // Example: if searchScore = 0.012 (very low relevance), multiplier = 0.0
 //
@@ -45,22 +48,31 @@ func calculateRelevanceMultiplier(searchScore float64) float64 {
 		return 1.0
 	}
 
-	// Non-linear curve with gradations for smoother transitions
+	// Non-linear curve with 6 gradations for very smooth transitions
 	// Normalize score to [0, 1] range
 	normalized := (searchScore - minRelevanceThreshold) / (fullBoostThreshold - minRelevanceThreshold)
 
-	// Apply piece-wise function with different slopes for gradations
-	// This creates a more nuanced curve than simple linear interpolation
+	// Apply piece-wise function with 6 different slopes for fine-grained gradations
+	// This creates a very nuanced curve with smoother transitions
 	switch {
-	case normalized < 0.231: // 0.1 to 0.4 range (slow ramp)
-		// Minimal boost for weak matches
-		return normalized * 1.3 // 0.0 → 0.3
-	case normalized < 0.538: // 0.4 to 0.8 range (medium ramp)
+	case normalized < 0.154: // 0.10 to 0.30 range (very slow ramp)
+		// Minimal boost for very weak matches
+		return normalized * 0.974 // 0.00 → 0.15
+	case normalized < 0.308: // 0.30 to 0.50 range (slow ramp)
+		// Small boost for weak matches
+		return 0.15 + (normalized-0.154)*0.974 // 0.15 → 0.30
+	case normalized < 0.462: // 0.50 to 0.70 range (moderate ramp)
 		// Moderate boost for decent matches
-		return 0.3 + (normalized-0.231)*0.976 // 0.3 → 0.6
-	default: // 0.8 to 1.4 range (fast ramp)
-		// Strong boost for good matches
-		return 0.6 + (normalized-0.538)*0.866 // 0.6 → 1.0
+		return 0.30 + (normalized-0.308)*1.299 // 0.30 → 0.50
+	case normalized < 0.615: // 0.70 to 0.90 range (medium-fast ramp)
+		// Good boost for solid matches
+		return 0.50 + (normalized-0.462)*1.303 // 0.50 → 0.70
+	case normalized < 0.808: // 0.90 to 1.15 range (fast ramp)
+		// Strong boost for very good matches
+		return 0.70 + (normalized-0.615)*0.777 // 0.70 → 0.85
+	default: // 1.15 to 1.40 range (very fast ramp)
+		// Full boost for excellent matches
+		return 0.85 + (normalized-0.808)*0.781 // 0.85 → 1.00
 	}
 }
 
