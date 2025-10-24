@@ -1084,7 +1084,8 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 	}
 
 	// Index project descriptions
-	if err := indexDescriptions(projects, cfg.Cache.Dir, silent); err != nil {
+	isFullSync := (syncMode == syncModeFull)
+	if err := indexDescriptions(projects, cfg.Cache.Dir, silent, isFullSync); err != nil {
 		logger.Warn("Description indexing failed: %v", err)
 		logInfo("Search will work without description content. Run 'glf --sync' again to retry.")
 		// Don't fail the entire sync if indexing fails
@@ -1117,7 +1118,7 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 }
 
 // indexDescriptions indexes project descriptions for full-text search
-func indexDescriptions(projects []model.Project, cacheDir string, silent bool) error {
+func indexDescriptions(projects []model.Project, cacheDir string, silent bool, isFullSync bool) error {
 	logInfo := logger.Info
 	logSuccess := logger.Success
 	if silent {
@@ -1151,6 +1152,37 @@ func indexDescriptions(projects []model.Project, cacheDir string, silent bool) e
 		logger.Debug("Failed to get document count: %v", countErr)
 	} else if docCount > 0 {
 		logger.Debug("Existing index has %d documents", docCount)
+	}
+
+	// For full sync: remove projects from index that are no longer on GitLab
+	if isFullSync {
+		// Get all projects currently in index
+		existingProjects, err := descriptionIndex.GetAllProjects()
+		if err != nil {
+			logger.Debug("Failed to get existing projects from index: %v", err)
+		} else {
+			// Build a set of current project paths from GitLab
+			currentPaths := make(map[string]bool, len(projects))
+			for _, proj := range projects {
+				currentPaths[proj.Path] = true
+			}
+
+			// Find and delete projects that are no longer on GitLab
+			var deleted int
+			for _, existingProj := range existingProjects {
+				if !currentPaths[existingProj.Path] {
+					if err := descriptionIndex.Delete(existingProj.Path); err != nil {
+						logger.Debug("Failed to delete project %s: %v", existingProj.Path, err)
+					} else {
+						deleted++
+					}
+				}
+			}
+
+			if deleted > 0 {
+				logInfo("Removed %d deleted projects from index", deleted)
+			}
+		}
 	}
 
 	// Prepare documents for batch indexing

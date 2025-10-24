@@ -118,7 +118,7 @@ func TestIndexDescriptions_EmptyProjects(t *testing.T) {
 
 	projects := []model.Project{}
 
-	err := indexDescriptions(projects, tempDir, true)
+	err := indexDescriptions(projects, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("indexDescriptions with empty projects failed: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestIndexDescriptions_SingleProject(t *testing.T) {
 		},
 	}
 
-	err := indexDescriptions(projects, tempDir, true)
+	err := indexDescriptions(projects, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("indexDescriptions with single project failed: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestIndexDescriptions_MultipleProjects(t *testing.T) {
 		}
 	}
 
-	err := indexDescriptions(projects, tempDir, true)
+	err := indexDescriptions(projects, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("indexDescriptions with multiple projects failed: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestIndexDescriptions_ProjectsWithoutDescription(t *testing.T) {
 		},
 	}
 
-	err := indexDescriptions(projects, tempDir, true)
+	err := indexDescriptions(projects, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("indexDescriptions with projects without description failed: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestIndexDescriptions_InvalidCacheDir(t *testing.T) {
 		},
 	}
 
-	err := indexDescriptions(projects, invalidPath, true)
+	err := indexDescriptions(projects, invalidPath, true, false)
 	if err == nil {
 		t.Error("Expected error with invalid cache directory, got nil")
 	}
@@ -263,7 +263,7 @@ cache:
 	projects := []model.Project{
 		{Path: "test/project", Name: "Test", Description: "Test"},
 	}
-	_ = indexDescriptions(projects, cacheDir, true)
+	_ = indexDescriptions(projects, cacheDir, true, false)
 
 	// Set HOME to temp directory
 	oldHome := os.Getenv("HOME")
@@ -1001,7 +1001,7 @@ func TestIndexDescriptions_VerifyIndexContent(t *testing.T) {
 		},
 	}
 
-	err := indexDescriptions(projects, tempDir, true)
+	err := indexDescriptions(projects, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("indexDescriptions failed: %v", err)
 	}
@@ -1038,7 +1038,7 @@ func TestIndexDescriptions_IncrementalUpdate(t *testing.T) {
 		},
 	}
 
-	err := indexDescriptions(projects1, tempDir, true)
+	err := indexDescriptions(projects1, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("First indexDescriptions failed: %v", err)
 	}
@@ -1052,7 +1052,7 @@ func TestIndexDescriptions_IncrementalUpdate(t *testing.T) {
 		},
 	}
 
-	err = indexDescriptions(projects2, tempDir, true)
+	err = indexDescriptions(projects2, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("Second indexDescriptions failed: %v", err)
 	}
@@ -1097,7 +1097,7 @@ cache:
 	projects := []model.Project{
 		{Path: "test/project", Name: "Test", Description: "Test"},
 	}
-	_ = indexDescriptions(projects, cacheDir, true)
+	_ = indexDescriptions(projects, cacheDir, true, false)
 
 	// Corrupt the index by writing invalid data to a critical file
 	indexPath := filepath.Join(cacheDir, "description.bleve")
@@ -1148,7 +1148,7 @@ func TestIndexDescriptions_WithExistingIndex(t *testing.T) {
 		{Path: "group/project2", Name: "Project 2", Description: "Second project"},
 	}
 
-	err := indexDescriptions(projects1, tempDir, true)
+	err := indexDescriptions(projects1, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("First indexing failed: %v", err)
 	}
@@ -1165,7 +1165,7 @@ func TestIndexDescriptions_WithExistingIndex(t *testing.T) {
 		{Path: "group/project3", Name: "Project 3", Description: "Third project"},
 	}
 
-	err = indexDescriptions(projects2, tempDir, true)
+	err = indexDescriptions(projects2, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("Second indexing (with existing index) failed: %v", err)
 	}
@@ -1204,7 +1204,7 @@ func TestIndexDescriptions_LargeBatch(t *testing.T) {
 		}
 	}
 
-	err := indexDescriptions(projects, tempDir, true)
+	err := indexDescriptions(projects, tempDir, true, false)
 	if err != nil {
 		t.Fatalf("Large batch indexing failed: %v", err)
 	}
@@ -2083,5 +2083,81 @@ func TestValidateToken(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestIndexDescriptions_FullSyncRemovesDeletedProjects(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Initial indexing with 3 projects
+	projects1 := []model.Project{
+		{Path: "group/project1", Name: "Project 1", Description: "First project"},
+		{Path: "group/project2", Name: "Project 2", Description: "Second project"},
+		{Path: "group/project3", Name: "Project 3", Description: "Third project"},
+	}
+
+	// Index initial projects (not full sync)
+	err := indexDescriptions(projects1, tempDir, true, false)
+	if err != nil {
+		t.Fatalf("Failed to index initial projects: %v", err)
+	}
+
+	// Verify all 3 projects are indexed
+	indexPath := filepath.Join(tempDir, "description.bleve")
+	descIndex, _, err := index.NewDescriptionIndexWithAutoRecreate(indexPath)
+	if err != nil {
+		t.Fatalf("Failed to open index: %v", err)
+	}
+
+	allProjects, err := descIndex.GetAllProjects()
+	if err != nil {
+		t.Fatalf("Failed to get all projects: %v", err)
+	}
+	if len(allProjects) != 3 {
+		t.Errorf("Expected 3 projects, got %d", len(allProjects))
+	}
+	descIndex.Close()
+
+	// Full sync with only 2 projects (project2 was deleted)
+	projects2 := []model.Project{
+		{Path: "group/project1", Name: "Project 1", Description: "First project updated"},
+		{Path: "group/project3", Name: "Project 3", Description: "Third project updated"},
+	}
+
+	err = indexDescriptions(projects2, tempDir, true, true) // isFullSync = true
+	if err != nil {
+		t.Fatalf("Failed to index with full sync: %v", err)
+	}
+
+	// Verify only 2 projects remain
+	descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
+	if err != nil {
+		t.Fatalf("Failed to open index after full sync: %v", err)
+	}
+	defer descIndex.Close()
+
+	allProjects, err = descIndex.GetAllProjects()
+	if err != nil {
+		t.Fatalf("Failed to get all projects after full sync: %v", err)
+	}
+
+	if len(allProjects) != 2 {
+		t.Errorf("Expected 2 projects after full sync, got %d", len(allProjects))
+	}
+
+	// Verify project2 was deleted
+	paths := make(map[string]bool)
+	for _, proj := range allProjects {
+		paths[proj.Path] = true
+	}
+
+	if paths["group/project2"] {
+		t.Error("project2 should have been deleted during full sync")
+	}
+	if !paths["group/project1"] {
+		t.Error("project1 should still exist")
+	}
+	if !paths["group/project3"] {
+		t.Error("project3 should still exist")
 	}
 }
