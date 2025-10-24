@@ -78,18 +78,20 @@ type (
 )
 
 var (
-	verbose      bool // Flag to enable verbose logging
-	showScores   bool // Flag to show score breakdown (search + history)
-	autoGo       bool // Flag to automatically select first result and open in browser
-	doSync       bool // Flag to perform sync instead of search
-	forceFull    bool // Flag to force full sync (ignore incremental)
-	doInit       bool // Flag to run interactive configuration wizard
-	resetFlag    bool // Flag to reset configuration and start from scratch
-	jsonOutput   bool // Flag to enable JSON output mode for API integrations
-	limitResults int  // Flag to limit number of results in JSON mode
-	showHistory  bool // Flag to display search history
-	clearHistory bool // Flag to clear search history
-	showHidden   bool // Flag to show hidden projects (excluded, archived, non-member) - affects TUI initial state and JSON output
+	verbose      bool   // Flag to enable verbose logging
+	showScores   bool   // Flag to show score breakdown (search + history)
+	autoGo       bool   // Flag to automatically select first result and open in browser
+	doSync       bool   // Flag to perform sync instead of search
+	forceFull    bool   // Flag to force full sync (ignore incremental)
+	doInit       bool   // Flag to run interactive configuration wizard
+	resetFlag    bool   // Flag to reset configuration and start from scratch
+	jsonOutput   bool   // Flag to enable JSON output mode for API integrations
+	limitResults int    // Flag to limit number of results in JSON mode
+	showHistory  bool   // Flag to display search history
+	clearHistory bool   // Flag to clear search history
+	showHidden   bool   // Flag to show hidden projects (excluded, archived, non-member) - affects TUI initial state and JSON output
+	jsonRecord   string // Flag to record project selection in history (for JSON integrations like Raycast)
+	queryContext string // Flag to provide query context when recording selection
 )
 
 var rootCmd = &cobra.Command{
@@ -145,6 +147,11 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	// Handle --clear-history flag (clear history and exit)
 	if clearHistory {
 		return runClearHistory(cfg)
+	}
+
+	// Handle --json-record flag (record selection in history and exit)
+	if jsonRecord != "" {
+		return runRecordSelection(cfg, jsonRecord, queryContext)
 	}
 
 	// Handle "glf ." - open current Git repository
@@ -726,6 +733,35 @@ func runClearHistory(cfg *config.Config) error {
 
 	fmt.Printf("✓ History cleared: %d selections from %d projects removed\n", totalSelections, uniqueProjects)
 
+	return nil
+}
+
+// runRecordSelection records a project selection in the history (for JSON integrations)
+func runRecordSelection(cfg *config.Config, projectPath, query string) error {
+	historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
+	hist := history.New(historyPath)
+
+	// Load history synchronously
+	errCh := hist.LoadAsync()
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("failed to load history: %w", err)
+	}
+
+	// Record selection with or without query context
+	if query != "" {
+		hist.RecordSelectionWithQuery(query, projectPath)
+		logger.Debug("Recorded selection: %s (query: %s)", projectPath, query)
+	} else {
+		hist.RecordSelection(projectPath)
+		logger.Debug("Recorded selection: %s (no query)", projectPath)
+	}
+
+	// Save history
+	if err := hist.Save(); err != nil {
+		return fmt.Errorf("failed to save history: %w", err)
+	}
+
+	logger.Debug("History saved successfully")
 	return nil
 }
 
@@ -1607,6 +1643,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&showHistory, "history", false, "show search history with scores")
 	rootCmd.PersistentFlags().BoolVar(&clearHistory, "clear-history", false, "clear search history")
 	rootCmd.PersistentFlags().BoolVar(&showHidden, "show-hidden", false, "show hidden projects (excluded, archived, non-member) - toggle with Ctrl+H in TUI")
+	rootCmd.PersistentFlags().StringVar(&jsonRecord, "json-record", "", "record project selection in history (project path, for JSON integrations)")
+	rootCmd.PersistentFlags().StringVar(&queryContext, "query", "", "query context for recording selection (optional, used with --json-record)")
 
 	// Set up verbose mode before command execution
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
