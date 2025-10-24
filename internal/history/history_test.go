@@ -728,6 +728,11 @@ func TestHistory_LoadAsync_CorruptedFile(t *testing.T) {
 }
 
 func TestHistory_LoadAsync_PermissionDenied(t *testing.T) {
+	// Skip on Windows where chmod doesn't work the same way
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test on Windows: chmod doesn't work the same way")
+	}
+
 	// Skip on systems where we can't test permissions
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test when running as root")
