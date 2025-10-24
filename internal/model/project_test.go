@@ -93,10 +93,10 @@ func TestProject_DisplayString(t *testing.T) {
 		{
 			name: "multi-level path - normal case",
 			project: Project{
-				Path: "numbuster/api/payment/payselection/callback",
-				Name: "payselection-callback",
+				Path: "company/group/subgroup/service/callback",
+				Name: "service-callback",
 			},
-			expected: "[numbuster/api/payment/payselection] > payselection-callback",
+			expected: "[company/group/subgroup/service] > service-callback",
 		},
 		{
 			name: "two-level path",

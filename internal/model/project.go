@@ -5,8 +5,8 @@ import "strings"
 
 // Project represents a GitLab project with its path, name and description
 type Project struct {
-	Path        string // PathWithNamespace (e.g., "numbuster/api/payment/payselection/callback")
-	Name        string // Project name (e.g., "payselection-callback")
+	Path        string // PathWithNamespace (e.g., "company/group/subgroup/project-name")
+	Name        string // Project name (e.g., "project-name")
 	Description string // Project description (may be empty)
 	Starred     bool   // Whether the project is starred by the user
 	Archived    bool   // Whether the project is archived
@@ -15,17 +15,17 @@ type Project struct {
 
 // SearchableString returns a combined string for fuzzy searching
 // Format: "path/name" - this gives priority to project name in search
-// Example: "numbuster/api/payment/payselection/payselection-callback"
+// Example: "company/group/subgroup/project-name"
 func (p Project) SearchableString() string {
 	return p.Path + "/" + p.Name
 }
 
 // DisplayString returns formatted display string in style: [namespace] > project-name
-// For path "numbuster/api/payment/payselection/callback" and name "payselection-callback"
-// Returns: "[numbuster/api/payment/payselection] > payselection-callback"
+// For path "company/group/subgroup/myproject" and name "myproject"
+// Returns: "[company/group/subgroup] > myproject"
 func (p Project) DisplayString() string {
 	// Remove last segment from path (project slug), keep all groups including root
-	// numbuster/api/payment/payselection/callback -> numbuster/api/payment/payselection
+	// company/group/subgroup/myproject -> company/group/subgroup
 	parts := strings.Split(p.Path, "/")
 	if len(parts) > 1 {
 		// Take all parts except the last one (the namespace)
