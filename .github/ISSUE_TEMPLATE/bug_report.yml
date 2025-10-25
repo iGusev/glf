@@ -6,21 +6,21 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug! Please fill out the information below to help us fix the issue.
+        Thanks for reporting a bug! Please provide the following information.
 
   - type: textarea
     id: description
     attributes:
-      label: Description
-      description: A clear and concise description of the bug
-      placeholder: What happened? What did you expect to happen?
+      label: What happened?
+      description: Brief description of the bug
+      placeholder: Describe the issue you encountered
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: Steps to Reproduce
+      label: How to reproduce?
       description: Steps to reproduce the behavior
       placeholder: |
         1. Run command '...'
@@ -29,107 +29,37 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected Behavior
-      description: What you expected to happen
-      placeholder: Describe what should have happened
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual Behavior
-      description: What actually happened
-      placeholder: Describe what actually happened
-    validations:
-      required: true
-
   - type: input
     id: version
     attributes:
       label: GLF Version
-      description: Run `glf --version` to get your version
-      placeholder: "e.g., v0.3.0"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: os
-    attributes:
-      label: Operating System
-      description: What operating system are you using?
-      options:
-        - macOS
-        - Linux (specify distribution below)
-        - Windows
-        - FreeBSD
-        - OpenBSD
-        - Other
+      description: Run `glf --version`
+      placeholder: "v0.3.0"
     validations:
       required: true
 
   - type: input
-    id: os-version
+    id: os
     attributes:
-      label: OS Version/Distribution
-      description: OS version or Linux distribution name
-      placeholder: "e.g., macOS 14.0, Ubuntu 22.04, Windows 11"
-    validations:
-      required: false
-
-  - type: dropdown
-    id: install-method
-    attributes:
-      label: Installation Method
-      description: How did you install GLF?
-      options:
-        - Homebrew
-        - MacPorts
-        - Scoop
-        - From source
-        - Binary release
-        - Package manager (deb/rpm/apk)
-        - Other
+      label: Operating System
+      description: Your OS and version
+      placeholder: "macOS 14.0, Ubuntu 22.04, Windows 11, etc."
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Error Output
-      description: Please paste any error messages or relevant output
-      placeholder: Run with `glf --verbose` for detailed logs
+      label: Error Output (optional)
+      description: Paste any error messages or run with `glf --verbose`
       render: shell
-    validations:
-      required: false
-
-  - type: textarea
-    id: config
-    attributes:
-      label: Configuration
-      description: Content of your `~/.config/glf/config.yaml` (remove sensitive tokens!)
-      placeholder: Paste your config here (REMOVE YOUR TOKEN!)
-      render: yaml
     validations:
       required: false
 
   - type: textarea
     id: additional
     attributes:
-      label: Additional Context
-      description: Any other context about the problem
-      placeholder: Screenshots, workarounds, related issues, etc.
+      label: Additional Context (optional)
+      description: Screenshots, workarounds, or other relevant information
     validations:
       required: false
-
-  - type: checkboxes
-    id: terms
-    attributes:
-      label: Code of Conduct
-      description: By submitting this issue, you agree to follow our Code of Conduct
-      options:
-        - label: I agree to follow this project's Code of Conduct
-          required: true
