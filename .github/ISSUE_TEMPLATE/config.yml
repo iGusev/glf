@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/igusev/glf#readme
+    about: Read the documentation for usage instructions and examples
+  - name: 💬 Discussions
+    url: https://github.com/igusev/glf/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: ⚠️ Security Issues
+    url: mailto:mail@igusev.ru
+    about: Report security vulnerabilities privately via email

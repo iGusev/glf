@@ -1,0 +1,90 @@
+name: Question / Support
+description: Ask a question or get help
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Need help using GLF? Ask your question here!
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to know?
+      placeholder: How do I...?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Topic
+      description: What is your question about?
+      options:
+        - Installation
+        - Configuration
+        - Usage
+        - GitLab integration
+        - Search functionality
+        - Troubleshooting
+        - Performance
+        - JSON API mode
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: What have you tried?
+      description: What steps have you already taken to solve this?
+      placeholder: |
+        - Checked the README
+        - Tried commands X, Y, Z
+        - Searched existing issues
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: GLF Version
+      description: Run `glf --version` to get your version
+      placeholder: "e.g., v0.3.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - FreeBSD
+        - OpenBSD
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+      placeholder: Error messages, screenshots, config files (remove tokens!), etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
