@@ -16,7 +16,7 @@ import (
 func main() {
 	// Create demo cache directory in demo/data/glf
 	demoDir := "demo/data/glf"
-	if err := os.MkdirAll(demoDir, 0755); err != nil {
+	if err := os.MkdirAll(demoDir, 0750); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create demo dir: %v\n", err)
 		os.Exit(1)
 	}
@@ -371,11 +371,16 @@ func main() {
 	}
 
 	if err := descIndex.AddBatch(docs); err != nil {
-		descIndex.Close()
+		if closeErr := descIndex.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to close index: %v\n", closeErr)
+		}
 		fmt.Fprintf(os.Stderr, "Failed to index projects: %v\n", err)
 		os.Exit(1)
 	}
-	descIndex.Close()
+	if err := descIndex.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to close index: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Printf("✓ Created search index\n")
 
 	// Create fake history
