@@ -343,7 +343,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to marshal projects: %v\n", err)
 		os.Exit(1)
 	}
-	if err := os.WriteFile(cacheFile, data, 0644); err != nil {
+	if err := os.WriteFile(cacheFile, data, 0600); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write cache: %v\n", err)
 		os.Exit(1)
 	}
@@ -356,7 +356,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to create index: %v\n", err)
 		os.Exit(1)
 	}
-	defer descIndex.Close()
 
 	// Index all projects
 	var docs []index.DescriptionDocument
@@ -372,9 +371,11 @@ func main() {
 	}
 
 	if err := descIndex.AddBatch(docs); err != nil {
+		descIndex.Close()
 		fmt.Fprintf(os.Stderr, "Failed to index projects: %v\n", err)
 		os.Exit(1)
 	}
+	descIndex.Close()
 	fmt.Printf("✓ Created search index\n")
 
 	// Create fake history
