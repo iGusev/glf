@@ -1,8 +1,16 @@
 # GLF - GitLab 模糊查找器
 
-**[🇬🇧 English](README.md)** | **[🇷🇺 Русский](README_ru.md)** | **[🇨🇳 中文](README_cn.md)**
+<div align="center">
+  <strong><a href="README.md">🇬🇧 English</a></strong> | <strong><a href="README_ru.md">🇷🇺 Русский</a></strong> | <strong><a href="README_cn.md">🇨🇳 中文</a></strong>
+</div>
+
+<br>
 
 ⚡ 使用本地缓存快速在自托管 GitLab 项目中进行模糊搜索的命令行工具。
+
+<div align="center">
+  <img src="demo.gif" alt="GLF Demo" />
+</div>
 
 [![CI](https://github.com/igusev/glf/workflows/CI/badge.svg)](https://github.com/igusev/glf/actions/workflows/ci.yml)
 [![Security](https://github.com/igusev/glf/workflows/Security/badge.svg)](https://github.com/igusev/glf/actions/workflows/security.yml)

@@ -4,6 +4,8 @@
   <strong><a href="README.md">🇬🇧 English</a></strong> | <strong><a href="README_ru.md">🇷🇺 Русский</a></strong> | <strong><a href="README_cn.md">🇨🇳 中文</a></strong>
 </div>
 
+<br>
+
 ⚡ Fast CLI tool for instant fuzzy search across self-hosted GitLab projects using local cache.
 
 <div align="center">
