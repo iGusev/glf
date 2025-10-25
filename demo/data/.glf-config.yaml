@@ -1,0 +1,6 @@
+gitlab:
+  url: https://gitlab.company.com
+  token: demo-token-for-vhs-recording
+
+cache:
+  dir: scripts/demo-data/glf

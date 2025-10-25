@@ -4,6 +4,10 @@
 
 ⚡ Fast CLI tool for instant fuzzy search across self-hosted GitLab projects using local cache.
 
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/demo.webm" autoplay loop muted playsinline></video>
+</div>
+
 [![CI](https://github.com/igusev/glf/workflows/CI/badge.svg)](https://github.com/igusev/glf/actions/workflows/ci.yml)
 [![Security](https://github.com/igusev/glf/workflows/Security/badge.svg)](https://github.com/igusev/glf/actions/workflows/security.yml)
 [![codecov](https://codecov.io/gh/igusev/glf/branch/main/graph/badge.svg)](https://codecov.io/gh/igusev/glf)

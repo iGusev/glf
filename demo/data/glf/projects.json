@@ -1,0 +1,298 @@
+[
+  {
+    "Path": "backend/api/user-service",
+    "Name": "user-service",
+    "Description": "User authentication and profile management service with JWT tokens",
+    "Starred": true,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/api/payment-gateway",
+    "Name": "payment-gateway",
+    "Description": "Payment processing and transaction management with Stripe integration",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/api/notification-service",
+    "Name": "notification-service",
+    "Description": "Multi-channel notification delivery system (email, SMS, push)",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/api/search-engine",
+    "Name": "search-engine",
+    "Description": "Elasticsearch-based full-text search service with fuzzy matching",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/api/order-management",
+    "Name": "order-management",
+    "Description": "Order processing and inventory management system",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/api/recommendation-engine",
+    "Name": "recommendation-engine",
+    "Description": "ML-powered product recommendation service",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/workers/email-queue",
+    "Name": "email-queue",
+    "Description": "Background job processor for email delivery with Redis queue",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "backend/workers/image-processor",
+    "Name": "image-processor",
+    "Description": "Async image optimization and thumbnail generation worker",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "frontend/web/dashboard",
+    "Name": "dashboard",
+    "Description": "Admin dashboard with real-time analytics and monitoring",
+    "Starred": true,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "frontend/web/customer-portal",
+    "Name": "customer-portal",
+    "Description": "Customer-facing web application built with React and TypeScript",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "frontend/web/marketing-site",
+    "Name": "marketing-site",
+    "Description": "Public marketing website with Next.js and Tailwind CSS",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "frontend/mobile/ios-app",
+    "Name": "ios-app",
+    "Description": "Native iOS application written in Swift with SwiftUI",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "frontend/mobile/android-app",
+    "Name": "android-app",
+    "Description": "Native Android application with Kotlin and Jetpack Compose",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "frontend/mobile/react-native-app",
+    "Name": "react-native-app",
+    "Description": "Cross-platform mobile app with React Native",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "infrastructure/terraform/aws",
+    "Name": "aws",
+    "Description": "AWS infrastructure as code with Terraform modules",
+    "Starred": true,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "infrastructure/terraform/gcp",
+    "Name": "gcp",
+    "Description": "Google Cloud Platform infrastructure with Terraform",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "infrastructure/kubernetes/manifests",
+    "Name": "manifests",
+    "Description": "Kubernetes deployment manifests and Helm charts",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "infrastructure/kubernetes/operators",
+    "Name": "operators",
+    "Description": "Custom Kubernetes operators for application management",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "infrastructure/docker/base-images",
+    "Name": "base-images",
+    "Description": "Base Docker images for all services with security hardening",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "devops/ci-cd/jenkins-pipelines",
+    "Name": "jenkins-pipelines",
+    "Description": "CI/CD pipeline configurations and shared libraries",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "devops/ci-cd/github-actions",
+    "Name": "github-actions",
+    "Description": "Reusable GitHub Actions workflows",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "devops/monitoring/prometheus",
+    "Name": "prometheus",
+    "Description": "Prometheus monitoring stack with Grafana dashboards",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "devops/monitoring/elk-stack",
+    "Name": "elk-stack",
+    "Description": "Elasticsearch, Logstash, Kibana logging infrastructure",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "devops/security/vault-config",
+    "Name": "vault-config",
+    "Description": "HashiCorp Vault configuration for secrets management",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "data/analytics/warehouse",
+    "Name": "warehouse",
+    "Description": "Data warehouse and ETL processes with Airflow",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "data/analytics/reports",
+    "Name": "reports",
+    "Description": "Business intelligence reports and dashboards",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "data/ml/training-pipelines",
+    "Name": "training-pipelines",
+    "Description": "Machine learning model training pipelines with MLflow",
+    "Starred": false,
+    "Archived": false,
+    "Member": false
+  },
+  {
+    "Path": "data/ml/model-serving",
+    "Name": "model-serving",
+    "Description": "ML model serving infrastructure with TensorFlow Serving",
+    "Starred": false,
+    "Archived": false,
+    "Member": false
+  },
+  {
+    "Path": "libraries/common/utils",
+    "Name": "utils",
+    "Description": "Shared utility functions and helpers",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "libraries/ui-components",
+    "Name": "ui-components",
+    "Description": "Reusable React component library with Storybook",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "tools/cli/developer-tools",
+    "Name": "developer-tools",
+    "Description": "Internal CLI tools for developers",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "tools/scripts/automation",
+    "Name": "automation",
+    "Description": "Automation scripts for common tasks",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "tools/generators/project-scaffolding",
+    "Name": "project-scaffolding",
+    "Description": "Project template generator with best practices",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "docs/architecture/decisions",
+    "Name": "decisions",
+    "Description": "Architecture Decision Records (ADRs)",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "docs/api/specifications",
+    "Name": "specifications",
+    "Description": "OpenAPI specifications for all services",
+    "Starred": false,
+    "Archived": false,
+    "Member": true
+  },
+  {
+    "Path": "archived/legacy/old-monolith",
+    "Name": "old-monolith",
+    "Description": "Legacy monolithic application (archived)",
+    "Starred": false,
+    "Archived": true,
+    "Member": false
+  },
+  {
+    "Path": "archived/prototypes/blockchain-poc",
+    "Name": "blockchain-poc",
+    "Description": "Blockchain proof of concept (archived)",
+    "Starred": false,
+    "Archived": true,
+    "Member": false
+  }
+]

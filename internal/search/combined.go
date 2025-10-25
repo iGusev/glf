@@ -212,7 +212,7 @@ func allProjectsSortedByHistory(projects []model.Project, historyScores map[stri
 			StarredBonus: starredBonus,
 			TotalScore:   float64(historyScore) + float64(starredBonus),
 			Source:       index.MatchSourceName,
-			Snippet:      "",
+			Snippet:      p.Description, // Show full description for empty query
 		}
 	}
 

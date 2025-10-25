@@ -1,0 +1,7 @@
+gitlab:
+  url: https://gitlab.company.com
+  token: demo-token-for-vhs-recording
+  timeout: 30
+
+cache:
+  dir: ~/.cache/glf
