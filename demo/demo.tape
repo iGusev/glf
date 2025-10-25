@@ -40,7 +40,7 @@
 #   Hide                            Hide the subsequent commands from the output
 #   Show                            Show the subsequent commands in the output
 
-Output demo.webm
+Output demo.gif
 
 Set FontSize 16
 Set Width 900
