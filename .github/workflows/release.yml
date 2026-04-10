@@ -16,7 +16,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -48,7 +48,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Checkout MacPorts repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: igusev/macports-ports
           token: ${{ secrets.MACPORTS_GITHUB_TOKEN }}
