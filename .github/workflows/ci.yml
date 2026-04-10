@@ -12,13 +12,12 @@ permissions:
 
 jobs:
   test:
-    name: Test (Go ${{ matrix.go-version }} on ${{ matrix.os }})
+    name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.24.x', '1.25.x']
 
     steps:
       - name: Checkout code
@@ -27,7 +26,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version-file: go.mod
           cache: true
 
       - name: Download dependencies
@@ -37,19 +36,19 @@ jobs:
         run: go mod verify
 
       - name: Run tests (with coverage)
-        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25.x'
+        if: matrix.os == 'ubuntu-latest'
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Run tests (without coverage) - Windows
-        if: (matrix.os != 'ubuntu-latest' || matrix.go-version != '1.25.x') && runner.os == 'Windows'
+        if: matrix.os != 'ubuntu-latest' && runner.os == 'Windows'
         run: go test -v -race -short ./...
 
       - name: Run tests (without coverage) - Non-Windows
-        if: (matrix.os != 'ubuntu-latest' || matrix.go-version != '1.25.x') && runner.os != 'Windows'
+        if: matrix.os != 'ubuntu-latest' && runner.os != 'Windows'
         run: go test -v -race ./...
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25.x'
+        if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
@@ -68,7 +67,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25.x'
+          go-version-file: go.mod
           cache: true
 
       - name: Run golangci-lint
@@ -88,7 +87,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25.x'
+          go-version-file: go.mod
           cache: true
 
       - name: Check formatting
@@ -110,7 +109,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25.x'
+          go-version-file: go.mod
           cache: true
 
       - name: Build binary
