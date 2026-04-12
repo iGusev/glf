@@ -9,7 +9,7 @@ import (
 
 	"github.com/igusev/glf/internal/logger"
 	"github.com/igusev/glf/internal/model"
-	"github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // GitLabClient defines the interface for GitLab API operations
@@ -96,8 +96,8 @@ func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Pr
 		return nil, fmt.Errorf("failed to list projects (first page): %w", err)
 	}
 
-	totalPages := resp.TotalPages
-	totalProjects := resp.TotalItems
+	totalPages := int(resp.TotalPages)
+	totalProjects := int(resp.TotalItems)
 
 	logger.Debug("Total pages: %d, Total projects: %d", totalPages, totalProjects)
 
@@ -179,7 +179,7 @@ func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Pr
 			pageOpt := &gitlab.ListProjectsOptions{
 				ListOptions: gitlab.ListOptions{
 					PerPage: 100,
-					Page:    pageNum,
+					Page:    int64(pageNum),
 				},
 				Membership:        gitlab.Ptr(membership), // Preserve membership filter
 				Simple:            gitlab.Ptr(true),       // Return only limited fields
@@ -286,7 +286,7 @@ func (c *Client) FetchStarredProjects() (map[string]bool, error) {
 		return result, nil
 	}
 
-	totalPages := resp.TotalPages
+	totalPages := int(resp.TotalPages)
 	logger.Debug("Fetching starred projects: %d pages", totalPages)
 
 	// Add first page results
@@ -324,7 +324,7 @@ func (c *Client) FetchStarredProjects() (map[string]bool, error) {
 			pageOpt := &gitlab.ListProjectsOptions{
 				ListOptions: gitlab.ListOptions{
 					PerPage: 100,
-					Page:    pageNum,
+					Page:    int64(pageNum),
 				},
 				Starred: gitlab.Ptr(true),
 				Simple:  gitlab.Ptr(true),
@@ -385,7 +385,7 @@ func (c *Client) FetchMemberProjects() (map[string]bool, error) {
 		return result, nil
 	}
 
-	totalPages := resp.TotalPages
+	totalPages := int(resp.TotalPages)
 	logger.Debug("Fetching member projects: %d pages", totalPages)
 
 	// Add first page results
@@ -423,7 +423,7 @@ func (c *Client) FetchMemberProjects() (map[string]bool, error) {
 			pageOpt := &gitlab.ListProjectsOptions{
 				ListOptions: gitlab.ListOptions{
 					PerPage: 100,
-					Page:    pageNum,
+					Page:    int64(pageNum),
 				},
 				Membership: gitlab.Ptr(true),
 				Simple:     gitlab.Ptr(true),

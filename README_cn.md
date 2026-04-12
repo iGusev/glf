@@ -523,4 +523,4 @@ MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 - 使用 [Bubbletea](https://github.com/charmbracelet/bubbletea) 提供 UI 支持
 - 使用 [Lipgloss](https://github.com/charmbracelet/lipgloss) 进行样式设计
 - 使用 [Bleve](https://github.com/blevesearch/bleve) 进行搜索索引
-- 通过 [go-gitlab](https://github.com/xanzy/go-gitlab) 访问 GitLab API
+- 通过 [go-gitlab](https://gitlab.com/gitlab-org/api/client-go) 访问 GitLab API

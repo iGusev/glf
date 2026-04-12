@@ -590,4 +590,4 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 - UI powered by [Bubbletea](https://github.com/charmbracelet/bubbletea)
 - Styling with [Lipgloss](https://github.com/charmbracelet/lipgloss)
 - Search indexing with [Bleve](https://github.com/blevesearch/bleve)
-- GitLab API via [go-gitlab](https://github.com/xanzy/go-gitlab)
+- GitLab API via [go-gitlab](https://gitlab.com/gitlab-org/api/client-go)
