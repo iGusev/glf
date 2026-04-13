@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1552,14 +1553,14 @@ func TestRunAutoGoWithSync_EmptyProjects(t *testing.T) {
 
 	mockSync := func() error { return nil }
 
-	err := runAutoGoWithSync([]model.Project{}, "query", cfg, nil, mockSync)
+	err := runAutoGoWithSync("query", cfg, nil, mockSync)
 	if err == nil {
 		t.Fatal("Expected error for empty projects, got nil")
 	}
 
-	expectedError := "no projects in cache"
-	if err.Error() != expectedError {
-		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	// With nil descIndex and no index on disk, search reports index not found
+	if !strings.Contains(err.Error(), "search") {
+		t.Errorf("Expected search-related error, got '%s'", err.Error())
 	}
 }
 
@@ -1594,7 +1595,7 @@ func TestRunAutoGoWithSync_NoMatches(t *testing.T) {
 	mockSync := func() error { return nil }
 
 	// Search for something that doesn't exist
-	err = runAutoGoWithSync(projects, "nonexistent-query-xyz-12345", cfg, descIndex, mockSync)
+	err = runAutoGoWithSync("nonexistent-query-xyz-12345", cfg, descIndex, mockSync)
 	descIndex.Close()
 
 	if err == nil {
@@ -1642,7 +1643,7 @@ func TestRunAutoGoWithSync_SuccessfulMatch(t *testing.T) {
 	}
 
 	// Search for "api" - should find the project
-	err = runAutoGoWithSync(projects, "api", cfg, descIndex, mockSync)
+	err = runAutoGoWithSync("api", cfg, descIndex, mockSync)
 	descIndex.Close()
 
 	// Should succeed (browser opening will fail in test environment, but that's expected)
@@ -1696,7 +1697,7 @@ func TestRunAutoGoWithSync_SyncFailure(t *testing.T) {
 
 	// Search for "api" - should find the project
 	// Even if sync fails, the function should succeed (it just logs the error)
-	err = runAutoGoWithSync(projects, "api", cfg, descIndex, mockSync)
+	err = runAutoGoWithSync("api", cfg, descIndex, mockSync)
 	descIndex.Close()
 
 	if err != nil {
@@ -1753,7 +1754,7 @@ func TestRunAutoGoWithSync_SyncTimeout(t *testing.T) {
 		return nil
 	}
 
-	err = runAutoGoWithSync(projects, "api", cfg, descIndex, mockSync)
+	err = runAutoGoWithSync("api", cfg, descIndex, mockSync)
 	descIndex.Close()
 
 	if err != nil {
