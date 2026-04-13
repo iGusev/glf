@@ -99,7 +99,7 @@ func TestRunJSONMode_WithQuery(t *testing.T) {
 	os.Stdout = w
 
 	// Run JSON mode with query
-	err = runJSONMode(projects, "api", cfg, descIndex)
+	err = runJSONMode("api", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -157,20 +157,24 @@ func TestRunJSONMode_WithoutQuery(t *testing.T) {
 		Cache:  config.CacheConfig{Dir: cacheDir},
 	}
 
-	// Create test projects
-	projects := []model.Project{
-		{Path: "backend/api", Name: "API Server", Description: "REST API", Member: true},
-		{Path: "frontend/app", Name: "Frontend App", Description: "React app", Member: true},
-		{Path: "devops/tools", Name: "DevOps Tools", Description: "CI/CD tools", Member: true},
-	}
-
-	// Create empty index (not used for empty query, but needed for function signature)
+	// Create and populate index with test projects
 	indexPath := filepath.Join(cacheDir, "description.bleve")
 	descIndex, err := index.NewDescriptionIndex(indexPath)
 	if err != nil {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 	defer descIndex.Close()
+
+	testProjects := []struct{ path, name, desc string }{
+		{"backend/api", "API Server", "REST API"},
+		{"frontend/app", "Frontend App", "React app"},
+		{"devops/tools", "DevOps Tools", "CI/CD tools"},
+	}
+	for _, p := range testProjects {
+		if err := descIndex.Add(p.path, p.name, p.desc, false, false); err != nil {
+			t.Fatalf("Failed to add to index: %v", err)
+		}
+	}
 
 	// Set limit to 2 for testing
 	oldLimit := limitResults
@@ -183,7 +187,7 @@ func TestRunJSONMode_WithoutQuery(t *testing.T) {
 	os.Stdout = w
 
 	// Run JSON mode without query (empty string)
-	err = runJSONMode(projects, "", cfg, descIndex)
+	err = runJSONMode("", cfg, descIndex)
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -267,7 +271,7 @@ func TestRunJSONMode_WithScores(t *testing.T) {
 	os.Stdout = w
 
 	// Run JSON mode with query
-	err = runJSONMode(projects, "api", cfg, descIndex)
+	err = runJSONMode("api", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -345,15 +349,15 @@ func TestRunJSONMode_URLConstruction(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []model.Project{
-				{Path: tt.projectPath, Name: "Test Project", Description: "Test", Member: true},
-			}
-
-			// Create empty index
+			// Create and populate index
 			indexPath := filepath.Join(cacheDir, "description-"+tt.name+".bleve")
 			descIndex, err := index.NewDescriptionIndex(indexPath)
 			if err != nil {
 				t.Fatalf("Failed to create index: %v", err)
+			}
+			if err := descIndex.Add(tt.projectPath, "Test Project", "Test", false, false); err != nil {
+				descIndex.Close()
+				t.Fatalf("Failed to add to index: %v", err)
 			}
 
 			// Set limit
@@ -367,7 +371,7 @@ func TestRunJSONMode_URLConstruction(t *testing.T) {
 			os.Stdout = w
 
 			// Run JSON mode without query to get all projects
-			err = runJSONMode(projects, "", cfg, descIndex)
+			err = runJSONMode("", cfg, descIndex)
 			descIndex.Close()
 
 			w.Close()
@@ -475,13 +479,18 @@ func TestRunJSONMode_LimitEdgeCases(t *testing.T) {
 				}
 			}
 
-			// Create empty index
+			// Create and populate index
 			indexPath := filepath.Join(cacheDir, "description.bleve")
 			descIndex, err := index.NewDescriptionIndex(indexPath)
 			if err != nil {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 			defer descIndex.Close()
+			for _, p := range projects {
+				if err := descIndex.Add(p.Path, p.Name, p.Description, false, false); err != nil {
+					t.Fatalf("Failed to add to index: %v", err)
+				}
+			}
 
 			// Set limit for test
 			oldLimit := limitResults
@@ -494,7 +503,7 @@ func TestRunJSONMode_LimitEdgeCases(t *testing.T) {
 			os.Stdout = w
 
 			// Run without query to get all projects
-			err = runJSONMode(projects, "", cfg, descIndex)
+			err = runJSONMode("", cfg, descIndex)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -579,7 +588,7 @@ func TestRunJSONMode_SpecialCharacters(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			err = runJSONMode(tt.query, cfg, descIndex)
 			descIndex.Close()
 
 			w.Close()
@@ -655,7 +664,7 @@ func TestRunJSONMode_EmptyResults(t *testing.T) {
 	os.Stdout = w
 
 	// Query that matches nothing
-	err = runJSONMode(projects, "zzznomatchxxx", cfg, descIndex)
+	err = runJSONMode("zzznomatchxxx", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -716,13 +725,25 @@ func TestRunJSONMode_LargeResultSet(t *testing.T) {
 		}
 	}
 
-	// Create index (don't populate for speed - we're testing without query)
+	// Create and populate index
 	indexPath := filepath.Join(cacheDir, "description.bleve")
 	descIndex, err := index.NewDescriptionIndex(indexPath)
 	if err != nil {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 	defer descIndex.Close()
+	docs := make([]index.DescriptionDocument, len(projects))
+	for i, p := range projects {
+		docs[i] = index.DescriptionDocument{
+			ProjectPath: p.Path,
+			ProjectName: p.Name,
+			Description: p.Description,
+			Member:      p.Member,
+		}
+	}
+	if err := descIndex.AddBatch(docs); err != nil {
+		t.Fatalf("Failed to batch index: %v", err)
+	}
 
 	// Set limit to 20
 	oldLimit := limitResults
@@ -735,7 +756,7 @@ func TestRunJSONMode_LargeResultSet(t *testing.T) {
 	os.Stdout = w
 
 	// Run without query to get all projects (limited to 20)
-	err = runJSONMode(projects, "", cfg, descIndex)
+	err = runJSONMode("", cfg, descIndex)
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -815,7 +836,7 @@ func TestRunJSONMode_HistoryLoadError(t *testing.T) {
 	os.Stdout = w
 
 	// Should still work despite corrupted history
-	err = runJSONMode(projects, "test", cfg, descIndex)
+	err = runJSONMode("test", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -885,7 +906,7 @@ func TestRunJSONMode_MultiTokenQuery(t *testing.T) {
 	os.Stdout = w
 
 	// Multi-token query
-	err = runJSONMode(projects, "api backend", cfg, descIndex)
+	err = runJSONMode("api backend", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -954,17 +975,16 @@ func TestRunJSONMode_ProjectPathEdgeCases(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []model.Project{
-				{Path: tt.projectPath, Name: "Test Project", Description: tt.description, Member: true},
-			}
-
-			// Create index
+			// Create and populate index
 			indexPath := filepath.Join(cacheDir, "description.bleve")
 			descIndex, err := index.NewDescriptionIndex(indexPath)
 			if err != nil {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 			defer descIndex.Close()
+			if err := descIndex.Add(tt.projectPath, "Test Project", tt.description, false, false); err != nil {
+				t.Fatalf("Failed to add to index: %v", err)
+			}
 
 			// Set limit
 			oldLimit := limitResults
@@ -976,7 +996,7 @@ func TestRunJSONMode_ProjectPathEdgeCases(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err = runJSONMode(projects, "", cfg, descIndex)
+			err = runJSONMode("", cfg, descIndex)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -1072,7 +1092,7 @@ func TestRunJSONMode_HistoryScoreIntegration(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err = runJSONMode(projects, "api", cfg, descIndex)
+	err = runJSONMode("api", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -1194,7 +1214,7 @@ func TestRunJSONMode_ScoreOrdering(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err = runJSONMode(projects, "api", cfg, descIndex)
+	err = runJSONMode("api", cfg, descIndex)
 	descIndex.Close()
 
 	w.Close()
@@ -1302,7 +1322,7 @@ func TestRunJSONMode_QueryEdgeCases(t *testing.T) {
 			os.Stdout = w
 
 			// Should not panic or crash
-			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			err = runJSONMode(tt.query, cfg, descIndex)
 			descIndex.Close()
 
 			w.Close()
@@ -1367,17 +1387,16 @@ func TestRunJSONMode_JSONStructureValidation(t *testing.T) {
 				Cache:  config.CacheConfig{Dir: cacheDir},
 			}
 
-			projects := []model.Project{
-				{Path: "test/project", Name: "Test", Description: tt.description},
-			}
-
-			// Create index
+			// Create and populate index
 			indexPath := filepath.Join(cacheDir, "description.bleve")
 			descIndex, err := index.NewDescriptionIndex(indexPath)
 			if err != nil {
 				t.Fatalf("Failed to create index: %v", err)
 			}
 			defer descIndex.Close()
+			if err := descIndex.Add("test/project", "Test", tt.description, false, false); err != nil {
+				t.Fatalf("Failed to add to index: %v", err)
+			}
 
 			// Set limit
 			oldLimit := limitResults
@@ -1389,7 +1408,7 @@ func TestRunJSONMode_JSONStructureValidation(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err = runJSONMode(projects, "", cfg, descIndex)
+			err = runJSONMode("", cfg, descIndex)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -1444,13 +1463,27 @@ func TestRunJSONMode_VeryLargeDataset(t *testing.T) {
 		}
 	}
 
-	// Create index (don't populate - testing without query)
+	// Create and populate index
 	indexPath := filepath.Join(cacheDir, "description.bleve")
 	descIndex, err := index.NewDescriptionIndex(indexPath)
 	if err != nil {
 		t.Fatalf("Failed to create index: %v", err)
 	}
 	defer descIndex.Close()
+
+	// Index all projects in batches
+	docs := make([]index.DescriptionDocument, len(projects))
+	for i, p := range projects {
+		docs[i] = index.DescriptionDocument{
+			ProjectPath: p.Path,
+			ProjectName: p.Name,
+			Description: p.Description,
+			Member:      p.Member,
+		}
+	}
+	if err := descIndex.AddBatch(docs); err != nil {
+		t.Fatalf("Failed to batch index: %v", err)
+	}
 
 	// Set limit
 	oldLimit := limitResults
@@ -1464,7 +1497,7 @@ func TestRunJSONMode_VeryLargeDataset(t *testing.T) {
 
 	// Measure performance
 	start := time.Now()
-	err = runJSONMode(projects, "", cfg, descIndex)
+	err = runJSONMode("", cfg, descIndex)
 	duration := time.Since(start)
 
 	w.Close()
@@ -1553,7 +1586,7 @@ func TestRunJSONMode_SecurityValidation(t *testing.T) {
 			os.Stdout = w
 
 			// Should not execute or cause security issues
-			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			err = runJSONMode(tt.query, cfg, descIndex)
 			descIndex.Close()
 
 			w.Close()
@@ -1635,7 +1668,7 @@ func TestRunJSONMode_UTF8EdgeCases(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err = runJSONMode(projects, tt.query, cfg, descIndex)
+			err = runJSONMode(tt.query, cfg, descIndex)
 			descIndex.Close()
 
 			w.Close()
@@ -1725,7 +1758,7 @@ func TestRunJSONMode_PerformanceBenchmark(t *testing.T) {
 		os.Stdout = w
 
 		start := time.Now()
-		err := runJSONMode(projects, "api", cfg, descIndex)
+		err := runJSONMode("api", cfg, descIndex)
 		duration := time.Since(start)
 
 		w.Close()

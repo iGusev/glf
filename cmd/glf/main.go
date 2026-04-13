@@ -199,13 +199,16 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	allProjects, err := descIndex.GetAllProjects()
+	// Lightweight check: are there any projects indexed?
+	// (Replaces the expensive GetAllProjects() which loaded everything on every startup)
+	// Count includes the internal version document, so <= 1 means no actual projects
+	projectCount, err := descIndex.Count()
 	if err != nil {
-		return fmt.Errorf("failed to load projects: %w", err)
+		return fmt.Errorf("failed to check index: %w", err)
 	}
 
-	// Check if we have any projects - if not, run sync
-	if len(allProjects) == 0 {
+	// No projects - trigger first-run sync
+	if projectCount <= 1 {
 		logger.Debug("No projects in index, running sync...")
 		shouldCloseIndex = false
 		if err := descIndex.Close(); err != nil {
@@ -219,17 +222,12 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 
-		// Reopen index and reload projects
+		// Reopen index after sync
 		descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
 		if err != nil {
 			return fmt.Errorf("failed to reopen index after sync: %w", err)
 		}
 		shouldCloseIndex = true
-
-		allProjects, err = descIndex.GetAllProjects()
-		if err != nil {
-			return fmt.Errorf("failed to load projects after sync: %w", err)
-		}
 	}
 
 	// Decide mode: interactive or direct search
@@ -238,7 +236,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 
 	// JSON output mode: return results in JSON format (for integrations like Raycast)
 	if jsonOutput {
-		return runJSONMode(allProjects, query, cfg, descIndex)
+		return runJSONMode(query, cfg, descIndex)
 	}
 
 	// Auto-go mode: select first result and open in browser
@@ -246,25 +244,21 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		if query == "" {
 			return fmt.Errorf("-g/--go requires a search query")
 		}
-		return runAutoGo(allProjects, query, cfg, descIndex)
+		return runAutoGo(query, cfg, descIndex)
 	}
 
 	// Going to interactive mode - close index explicitly before launching TUI
-	// (TUI will open it again when needed)
+	// (TUI background sync needs exclusive index access via file lock)
 	shouldCloseIndex = false
 	if err := descIndex.Close(); err != nil {
 		logger.Debug("Failed to close index: %v", err)
 	}
 	// Launch interactive TUI with optional initial query
-	return runInteractive(allProjects, query, cfg)
+	return runInteractive(query, cfg)
 }
 
 // runJSONMode outputs search results in JSON format for API integrations
-func runJSONMode(projects []model.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
-	if len(projects) == 0 {
-		return outputJSONError("no projects in cache")
-	}
-
+func runJSONMode(query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
 	// Load history for score boosting (used for both empty and non-empty queries)
 	historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
 	hist := history.New(historyPath)
@@ -275,50 +269,19 @@ func runJSONMode(projects []model.Project, query string, cfg *config.Config, des
 		logger.Debug("Failed to load history: %v", err)
 	}
 
-	var matches []index.CombinedMatch
-	var err error
-
-	// If query is provided, perform search
+	// Get appropriate history scores based on whether query is provided
+	var historyScores map[string]int
 	if query != "" {
-		// Get query-specific history scores
-		historyScores := hist.GetAllScoresForQuery(query)
-
-		// Perform search
-		matches, err = search.CombinedSearchWithIndex(query, projects, historyScores, cfg.Cache.Dir, descIndex)
-		if err != nil {
-			return outputJSONError(fmt.Sprintf("search failed: %v", err))
-		}
+		historyScores = hist.GetAllScoresForQuery(query)
 	} else {
-		// No query - rank by history scores and starred status
-		// Get ALL history scores (not query-specific)
-		allHistoryScores := hist.GetAllScores()
+		historyScores = hist.GetAllScores()
+	}
 
-		// Create matches with history scores
-		matches = make([]index.CombinedMatch, len(projects))
-		for i, proj := range projects {
-			histScore := float64(allHistoryScores[proj.Path])
-
-			// Give starred projects a bonus
-			starBonus := 0.0
-			if proj.Starred {
-				starBonus = 50.0 // Same bonus as in search
-			}
-
-			matches[i] = index.CombinedMatch{
-				Project:    proj,
-				TotalScore: histScore + starBonus,
-			}
-		}
-
-		// Sort by score descending (highest first)
-		// Projects with higher history scores + starred bonus come first
-		for i := 0; i < len(matches)-1; i++ {
-			for j := i + 1; j < len(matches); j++ {
-				if matches[j].TotalScore > matches[i].TotalScore {
-					matches[i], matches[j] = matches[j], matches[i]
-				}
-			}
-		}
+	// Perform search (CombinedSearchWithIndex handles both empty and non-empty queries)
+	// Pass nil for projects — data is loaded directly from Bleve stored fields
+	matches, err := search.CombinedSearchWithIndex(query, nil, historyScores, cfg.Cache.Dir, descIndex)
+	if err != nil {
+		return outputJSONError(fmt.Sprintf("search failed: %v", err))
 	}
 
 	// JSON mode: Include ALL projects with status fields (excluded, archived, member)
@@ -390,20 +353,16 @@ func outputJSONError(message string) error {
 }
 
 // runAutoGo automatically selects first result and opens it in browser
-func runAutoGo(projects []model.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
+func runAutoGo(query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
 	// Default sync function that calls performSyncInternal
 	syncFunc := func() error {
 		return performSyncInternal(cfg, true, false)
 	}
-	return runAutoGoWithSync(projects, query, cfg, descIndex, syncFunc)
+	return runAutoGoWithSync(query, cfg, descIndex, syncFunc)
 }
 
 // runAutoGoWithSync is the testable version that accepts a sync function
-func runAutoGoWithSync(projects []model.Project, query string, cfg *config.Config, descIndex *index.DescriptionIndex, syncFunc func() error) error {
-	if len(projects) == 0 {
-		return fmt.Errorf("no projects in cache")
-	}
-
+func runAutoGoWithSync(query string, cfg *config.Config, descIndex *index.DescriptionIndex, syncFunc func() error) error {
 	// Load history for score boosting
 	historyPath := filepath.Join(cfg.Cache.Dir, "history.gob")
 	hist := history.New(historyPath)
@@ -417,8 +376,8 @@ func runAutoGoWithSync(projects []model.Project, query string, cfg *config.Confi
 	// Get query-specific history scores
 	historyScores := hist.GetAllScoresForQuery(query)
 
-	// Perform search
-	matches, err := search.CombinedSearchWithIndex(query, projects, historyScores, cfg.Cache.Dir, descIndex)
+	// Perform search — nil projects, use Bleve stored fields directly
+	matches, err := search.CombinedSearchWithIndex(query, nil, historyScores, cfg.Cache.Dir, descIndex)
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
 	}
@@ -766,12 +725,7 @@ func runRecordSelection(cfg *config.Config, projectPath, query string) error {
 }
 
 // runInteractive launches the interactive TUI with optional initial query
-func runInteractive(projects []model.Project, initialQuery string, cfg *config.Config) error {
-	if len(projects) == 0 {
-		fmt.Println("No projects in cache. Run 'glf --sync' to fetch projects.")
-		return nil
-	}
-
+func runInteractive(initialQuery string, cfg *config.Config) error {
 	// Fetch current username for display in header
 	// Try to load from cache first
 	cacheManager := cache.New(cfg.Cache.Dir)
@@ -939,7 +893,7 @@ func runInteractive(projects []model.Project, initialQuery string, cfg *config.C
 	}
 
 	// Create and run the TUI with initial query, sync callback, cache dir for history, config, showScores flag, showHidden flag, username, and version
-	m := tui.New(projects, initialQuery, syncCallback, cfg.Cache.Dir, cfg, showScores, showHidden, username, version)
+	m := tui.New(nil, initialQuery, syncCallback, cfg.Cache.Dir, cfg, showScores, showHidden, username, version)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()
@@ -1391,32 +1345,11 @@ func runConfigWizard() error {
 	}
 	// Note: recreated flag ignored here - wizard already ran full sync above
 
-	// Use flag to control defer close behavior
-	shouldCloseIndex := true
-	defer func() {
-		if shouldCloseIndex {
-			_ = descIndex.Close() // Silent close - we're in interactive mode
-		}
-	}()
-
-	allProjects, err := descIndex.GetAllProjects()
-	if err != nil {
-		fmt.Printf("⚠️  Failed to load projects: %v\n", err)
-		fmt.Println("Run 'glf' to start searching.")
-		return nil
-	}
-
-	if len(allProjects) == 0 {
-		fmt.Println("No projects found. Check your GitLab permissions.")
-		return nil
-	}
-
-	// Close index before launching TUI (TUI will reopen it)
-	shouldCloseIndex = false
-	_ = descIndex.Close() // Silent close - we're in interactive mode
+	// Close index before launching TUI (TUI needs exclusive access for background sync)
+	_ = descIndex.Close()
 
 	// Launch interactive TUI
-	return runInteractive(allProjects, "", cfg)
+	return runInteractive("", cfg)
 }
 
 // maskToken masks a token for display, showing only first and last 4 characters

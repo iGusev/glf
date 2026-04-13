@@ -84,9 +84,36 @@ func CombinedSearch(query string, projects []model.Project, historyScores map[st
 }
 
 // CombinedSearchWithIndex is like CombinedSearch but accepts an already-open index
+// If projects is nil, project data is taken directly from Bleve stored fields
+// (avoids the need to load all projects into memory for non-empty queries)
 func CombinedSearchWithIndex(query string, projects []model.Project, historyScores map[string]int, cacheDir string, descIndex *index.DescriptionIndex) ([]index.CombinedMatch, error) {
 	if query == "" {
 		// Empty query: return all projects sorted by history
+		// If projects not provided, lazy-load from index
+		if projects == nil {
+			if descIndex == nil {
+				// No index provided, open it ourselves
+				indexPath := filepath.Join(cacheDir, "description.bleve")
+				if !index.Exists(indexPath) {
+					return nil, fmt.Errorf("search index not found, run 'glf sync' to build it")
+				}
+				var err error
+				descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to open search index: %w", err)
+				}
+				defer func() {
+					if err := descIndex.Close(); err != nil {
+						_ = err
+					}
+				}()
+			}
+			var err error
+			projects, err = descIndex.GetAllProjects()
+			if err != nil {
+				return nil, fmt.Errorf("failed to load projects for empty query: %w", err)
+			}
+		}
 		return allProjectsSortedByHistory(projects, historyScores), nil
 	}
 
@@ -128,19 +155,30 @@ func CombinedSearchWithIndex(query string, projects []model.Project, historyScor
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
 
-	// Create project lookup map to get full project details
-	projectMap := make(map[string]model.Project)
-	for _, p := range projects {
-		projectMap[p.Path] = p
+	// Build project lookup map only if projects slice is provided
+	// When nil, we use project data directly from Bleve stored fields
+	var projectMap map[string]model.Project
+	if projects != nil {
+		projectMap = make(map[string]model.Project, len(projects))
+		for _, p := range projects {
+			projectMap[p.Path] = p
+		}
 	}
 
 	// Convert Bleve matches to CombinedMatch with history boost
 	results := make([]index.CombinedMatch, 0, len(bleveMatches))
 	for _, match := range bleveMatches {
-		fullProject, ok := projectMap[match.Project.Path]
-		if !ok {
-			// Skip if project not found in original list
-			continue
+		var fullProject model.Project
+		if projectMap != nil {
+			fp, ok := projectMap[match.Project.Path]
+			if !ok {
+				// Skip if project not found in original list
+				continue
+			}
+			fullProject = fp
+		} else {
+			// Use project data from Bleve stored fields directly
+			fullProject = match.Project
 		}
 
 		// Get history boost for this project
