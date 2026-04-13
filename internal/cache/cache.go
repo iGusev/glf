@@ -3,6 +3,7 @@ package cache
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -262,4 +263,46 @@ func (c *Cache) LoadUsername() (string, error) {
 	}
 
 	return strings.TrimSpace(string(data)), nil
+}
+
+// SaveProjectSets saves starred and member project path sets to disk
+func (c *Cache) SaveProjectSets(starred, member map[string]bool) error {
+	if err := c.EnsureDir(); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	data := struct {
+		Starred map[string]bool `json:"starred"`
+		Member  map[string]bool `json:"member"`
+	}{Starred: starred, Member: member}
+
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal project sets: %w", err)
+	}
+
+	return os.WriteFile(filepath.Join(c.dir, ".project_sets.json"), bytes, 0600)
+}
+
+// LoadProjectSets loads cached starred and member project path sets
+// Returns nil maps if cache doesn't exist
+func (c *Cache) LoadProjectSets() (starred, member map[string]bool, err error) {
+	path := filepath.Join(c.dir, ".project_sets.json")
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, nil
+		}
+		return nil, nil, fmt.Errorf("failed to read project sets: %w", err)
+	}
+
+	var data struct {
+		Starred map[string]bool `json:"starred"`
+		Member  map[string]bool `json:"member"`
+	}
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal project sets: %w", err)
+	}
+
+	return data.Starred, data.Member, nil
 }

@@ -23,9 +23,10 @@ type Config struct {
 
 // GitLabConfig holds GitLab-specific settings
 type GitLabConfig struct {
-	URL     string `mapstructure:"url"`
-	Token   string `mapstructure:"token"`
-	Timeout int    `mapstructure:"timeout"` // timeout in seconds
+	URL         string `mapstructure:"url"`
+	Token       string `mapstructure:"token"`
+	Timeout     int    `mapstructure:"timeout"`     // timeout in seconds
+	Concurrency int    `mapstructure:"concurrency"` // max concurrent API requests (default 10)
 }
 
 // CacheConfig holds cache-specific settings
@@ -49,7 +50,8 @@ func Load() (*Config, error) {
 	// Set defaults
 	cacheDir := filepath.Join(os.Getenv("HOME"), ".cache", "glf")
 	viper.SetDefault("cache.dir", cacheDir)
-	viper.SetDefault("gitlab.timeout", 30) // Default 30 seconds timeout
+	viper.SetDefault("gitlab.timeout", 30)     // Default 30 seconds timeout
+	viper.SetDefault("gitlab.concurrency", 10) // Default 10 concurrent API requests
 
 	// Try to read config file (it's okay if it doesn't exist)
 	if err := viper.ReadInConfig(); err != nil {
@@ -78,7 +80,14 @@ func Load() (*Config, error) {
 
 	// Validate timeout
 	if cfg.GitLab.Timeout <= 0 {
-		cfg.GitLab.Timeout = 30 // Fallback to default
+		cfg.GitLab.Timeout = 30
+	}
+
+	// Validate concurrency
+	if cfg.GitLab.Concurrency <= 0 {
+		cfg.GitLab.Concurrency = 10
+	} else if cfg.GitLab.Concurrency > 50 {
+		cfg.GitLab.Concurrency = 50
 	}
 
 	return &cfg, nil
@@ -206,6 +215,7 @@ func (c *Config) Save() error {
 	viper.Set("gitlab.url", c.GitLab.URL)
 	viper.Set("gitlab.token", c.GitLab.Token)
 	viper.Set("gitlab.timeout", c.GitLab.Timeout)
+	viper.Set("gitlab.concurrency", c.GitLab.Concurrency)
 	viper.Set("cache.dir", c.Cache.Dir)
 	viper.Set("excluded_paths", c.ExcludedPaths)
 
@@ -237,6 +247,10 @@ gitlab:
 
   # API timeout in seconds (optional, defaults to 30)
   timeout: 30
+
+  # Max concurrent API requests (optional, defaults to 10, max 50)
+  # Increase for fast GitLab instances with many projects
+  concurrency: 10
 
 cache:
   # Cache directory (optional, defaults to ~/.cache/glf)

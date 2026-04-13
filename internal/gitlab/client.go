@@ -24,11 +24,15 @@ type GitLabClient interface {
 
 // Client wraps the GitLab API client and implements GitLabClient interface
 type Client struct {
-	client *gitlab.Client
+	client      *gitlab.Client
+	concurrency int
+	// Cached project sets — if set, FetchAllProjects skips API calls for these
+	cachedStarred map[string]bool
+	cachedMember  map[string]bool
 }
 
-// New creates a new GitLab client with timeout
-func New(url, token string, timeout time.Duration) (*Client, error) {
+// New creates a new GitLab client with timeout and concurrency settings
+func New(url, token string, timeout time.Duration, concurrency ...int) (*Client, error) {
 	// Create HTTP client with timeout
 	httpClient := &http.Client{
 		Timeout: timeout,
@@ -44,7 +48,24 @@ func New(url, token string, timeout time.Duration) (*Client, error) {
 		return nil, fmt.Errorf("failed to create GitLab client: %w", err)
 	}
 
-	return &Client{client: client}, nil
+	maxConc := 10
+	if len(concurrency) > 0 && concurrency[0] > 0 {
+		maxConc = concurrency[0]
+	}
+
+	return &Client{client: client, concurrency: maxConc}, nil
+}
+
+// SetCachedProjectSets provides pre-loaded starred/member sets to avoid API calls
+// during incremental sync. Pass nil to force fresh fetches.
+func (c *Client) SetCachedProjectSets(starred, member map[string]bool) {
+	c.cachedStarred = starred
+	c.cachedMember = member
+}
+
+// LastProjectSets returns the starred/member sets from the most recent FetchAllProjects call
+func (c *Client) LastProjectSets() (starred, member map[string]bool) {
+	return c.cachedStarred, c.cachedMember
 }
 
 // FetchAllProjects fetches all accessible projects from GitLab using parallel pagination
@@ -52,23 +73,36 @@ func New(url, token string, timeout time.Duration) (*Client, error) {
 // If membership is true, only fetches projects where the user is a member
 // Returns a slice of Project structs containing path, name, starred, and archived information
 func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Project, error) {
-	// Step 0: Fetch starred projects and member projects
-	logger.Debug("Fetching starred projects...")
-	starredProjects, err := c.FetchStarredProjects()
-	if err != nil {
-		logger.Debug("Warning: failed to fetch starred projects: %v", err)
-		starredProjects = make(map[string]bool)
+	// Step 0: Fetch or reuse cached starred/member project sets
+	var starredProjects map[string]bool
+	if c.cachedStarred != nil {
+		logger.Debug("Using cached starred projects (%d entries)", len(c.cachedStarred))
+		starredProjects = c.cachedStarred
+	} else {
+		logger.Debug("Fetching starred projects...")
+		var err error
+		starredProjects, err = c.FetchStarredProjects()
+		if err != nil {
+			logger.Debug("Warning: failed to fetch starred projects: %v", err)
+			starredProjects = make(map[string]bool)
+		}
+		c.cachedStarred = starredProjects
 	}
 
-	// Fetch member projects (only if we're fetching all projects, not just member projects)
-	// This allows us to distinguish member vs non-member projects in the UI
 	var memberProjects map[string]bool
 	if !membership {
-		logger.Debug("Fetching member projects...")
-		memberProjects, err = c.FetchMemberProjects()
-		if err != nil {
-			logger.Debug("Warning: failed to fetch member projects: %v", err)
-			memberProjects = make(map[string]bool)
+		if c.cachedMember != nil {
+			logger.Debug("Using cached member projects (%d entries)", len(c.cachedMember))
+			memberProjects = c.cachedMember
+		} else {
+			logger.Debug("Fetching member projects...")
+			var err error
+			memberProjects, err = c.FetchMemberProjects()
+			if err != nil {
+				logger.Debug("Warning: failed to fetch member projects: %v", err)
+				memberProjects = make(map[string]bool)
+			}
+			c.cachedMember = memberProjects
 		}
 	}
 
@@ -123,7 +157,7 @@ func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Pr
 	}
 
 	// Step 2: Parallel fetch remaining pages
-	const maxConcurrent = 10 // Limit concurrent requests to avoid overwhelming the server
+	maxConcurrent := c.concurrency
 
 	logger.Debug("Starting parallel fetch: %d pages with max %d concurrent requests", totalPages, maxConcurrent)
 	startTime := time.Now()
@@ -300,7 +334,7 @@ func (c *Client) FetchStarredProjects() (map[string]bool, error) {
 	}
 
 	// Step 2: Parallel fetch remaining pages
-	const maxConcurrent = 10
+	maxConcurrent := c.concurrency
 
 	type pageResult struct {
 		paths []string
@@ -399,7 +433,7 @@ func (c *Client) FetchMemberProjects() (map[string]bool, error) {
 	}
 
 	// Step 2: Parallel fetch remaining pages
-	const maxConcurrent = 10
+	maxConcurrent := c.concurrency
 
 	type pageResult struct {
 		paths []string
