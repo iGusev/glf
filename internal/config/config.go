@@ -50,7 +50,7 @@ func Load() (*Config, error) {
 	// Set defaults
 	cacheDir := filepath.Join(os.Getenv("HOME"), ".cache", "glf")
 	viper.SetDefault("cache.dir", cacheDir)
-	viper.SetDefault("gitlab.timeout", 30)      // Default 30 seconds timeout
+	viper.SetDefault("gitlab.timeout", 30)     // Default 30 seconds timeout
 	viper.SetDefault("gitlab.concurrency", 10) // Default 10 concurrent API requests
 
 	// Try to read config file (it's okay if it doesn't exist)
