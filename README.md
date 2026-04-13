@@ -413,6 +413,8 @@ History is stored in `~/.cache/glf/history.gob` and persists across sessions.
 
 ## 🔧 Development
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow, ranking algorithm, JSON API contract, and storage layout.
+
 ### Building
 
 ```bash
