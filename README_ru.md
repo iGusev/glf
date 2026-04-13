@@ -523,4 +523,4 @@ cat ~/.config/glf/config.yaml
 - UI на [Bubbletea](https://github.com/charmbracelet/bubbletea)
 - Стилизация с [Lipgloss](https://github.com/charmbracelet/lipgloss)
 - Индексирование поиска с [Bleve](https://github.com/blevesearch/bleve)
-- GitLab API через [go-gitlab](https://github.com/xanzy/go-gitlab)
+- GitLab API через [go-gitlab](https://gitlab.com/gitlab-org/api/client-go)

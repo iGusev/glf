@@ -78,15 +78,6 @@ linters:
           - gosec
           - govet  # Excludes fieldalignment from test files
         path: _test\.go$
-      # Exclude deprecation warnings for gitlab client (library migration requires separate task)
-      - linters:
-          - staticcheck
-        path: internal/gitlab/client\.go$
-        text: SA1019.*gitlab\.Client.*deprecated
-      - linters:
-          - staticcheck
-        path: internal/gitlab/client\.go$
-        text: SA1019.*gitlab\.NewClient.*deprecated
       # Exclude var-naming false positive for standard 'types' package name
       - linters:
           - revive
