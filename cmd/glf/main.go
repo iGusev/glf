@@ -257,6 +257,27 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	return runInteractive(query, cfg)
 }
 
+// backgroundSyncIfStale triggers a background sync if cache is older than 1 hour
+// The sync runs in a goroutine and does not block the caller
+func backgroundSyncIfStale(cfg *config.Config) {
+	cacheManager := cache.New(cfg.Cache.Dir)
+	lastSync, err := cacheManager.LoadLastSyncTime()
+	if err != nil || lastSync.IsZero() {
+		return
+	}
+	if time.Since(lastSync) < time.Hour {
+		return
+	}
+	logger.Debug("Cache is stale (%v old), starting background sync", time.Since(lastSync).Round(time.Second))
+	go func() {
+		if err := performSyncInternal(cfg, true, false); err != nil {
+			logger.Debug("Background sync failed: %v", err)
+		} else {
+			logger.Debug("Background sync completed")
+		}
+	}()
+}
+
 // runJSONMode outputs search results in JSON format for API integrations
 func runJSONMode(query string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
 	// Load history for score boosting (used for both empty and non-empty queries)
@@ -314,10 +335,7 @@ func runJSONMode(query string, cfg *config.Config, descIndex *index.DescriptionI
 			Member:      match.Project.Member,
 		}
 
-		// Include score if --scores flag is set
-		if showScores {
-			jsonProjects[i].Score = match.TotalScore
-		}
+		jsonProjects[i].Score = match.TotalScore
 	}
 
 	// Create result
@@ -327,6 +345,9 @@ func runJSONMode(query string, cfg *config.Config, descIndex *index.DescriptionI
 		Total:   len(matches),
 		Limit:   limitResults,
 	}
+
+	// Trigger background sync if cache is stale (non-blocking)
+	backgroundSyncIfStale(cfg)
 
 	return outputJSON(result)
 }
@@ -768,7 +789,7 @@ func runInteractive(initialQuery string, cfg *config.Config) error {
 			indexPath := filepath.Join(cfg.Cache.Dir, "description.bleve")
 
 			// Create GitLab client
-			client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout())
+			client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout(), cfg.GitLab.Concurrency)
 			if err != nil {
 				return tui.SyncCompleteMsg{Err: err}
 			}
@@ -854,9 +875,9 @@ func runInteractive(initialQuery string, cfg *config.Config) error {
 
 			// Index all projects in batches
 			if len(batchDocs) > 0 {
-				// Index in batches of 100
-				for i := 0; i < len(batchDocs); i += 100 {
-					end := i + 100
+				// Index in batches of 500
+				for i := 0; i < len(batchDocs); i += 500 {
+					end := i + 500
 					if end > len(batchDocs) {
 						end = len(batchDocs)
 					}
@@ -938,7 +959,7 @@ func performSyncInternal(cfg *config.Config, silent bool, forceFullSync bool) er
 
 	// Create GitLab client with timeout
 	logInfo("Connecting to GitLab at %s (timeout: %ds)...", cfg.GitLab.URL, cfg.GitLab.Timeout)
-	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout())
+	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout(), cfg.GitLab.Concurrency)
 	if err != nil {
 		logger.Error("Failed to create GitLab client")
 		return fmt.Errorf("GitLab client error: %w", err)
@@ -1006,6 +1027,19 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 		syncMode = syncModeIncremental
 	}
 
+	// For incremental sync, reuse cached starred/member sets to avoid extra API calls
+	if syncMode == syncModeIncremental {
+		if concreteClient, ok := client.(*gitlab.Client); ok {
+			cachedStarred, cachedMember, loadErr := cacheManager.LoadProjectSets()
+			if loadErr != nil {
+				logger.Debug("Failed to load cached project sets: %v", loadErr)
+			} else if cachedStarred != nil {
+				logger.Debug("Using cached starred (%d) and member (%d) project sets", len(cachedStarred), len(cachedMember))
+				concreteClient.SetCachedProjectSets(cachedStarred, cachedMember)
+			}
+		}
+	}
+
 	// Fetch projects (full or incremental)
 	logInfo("Fetching projects...")
 	start := time.Now()
@@ -1022,6 +1056,16 @@ func performSyncInternalWithClient(cfg *config.Config, client gitlab.GitLabClien
 		return fmt.Errorf("fetch error: %w", err)
 	}
 	elapsed := time.Since(start)
+
+	// Save starred/member sets to cache after fetch (for reuse in incremental syncs)
+	if concreteClient, ok := client.(*gitlab.Client); ok {
+		starred, member := concreteClient.LastProjectSets()
+		if starred != nil || member != nil {
+			if saveErr := cacheManager.SaveProjectSets(starred, member); saveErr != nil {
+				logger.Debug("Failed to save project sets cache: %v", saveErr)
+			}
+		}
+	}
 
 	if syncMode == syncModeIncremental {
 		logSuccess("Fetched %d changed projects in %v", len(projects), elapsed)
@@ -1141,7 +1185,7 @@ func indexDescriptions(projects []model.Project, cacheDir string, silent bool, i
 
 	// Prepare documents for batch indexing
 	var indexed int
-	batchDocs := make([]index.DescriptionDocument, 0, 100)
+	batchDocs := make([]index.DescriptionDocument, 0, 500)
 
 	for _, proj := range projects {
 		// Index all projects, even those without descriptions
@@ -1154,8 +1198,8 @@ func indexDescriptions(projects []model.Project, cacheDir string, silent bool, i
 			Member:      proj.Member,
 		})
 
-		// Index batch when it reaches 100 docs
-		if len(batchDocs) >= 100 {
+		// Index batch when it reaches 500 docs
+		if len(batchDocs) >= 500 {
 			if err := descriptionIndex.AddBatch(batchDocs); err != nil {
 				logger.Debug("Failed to index batch: %v", err)
 				return fmt.Errorf("failed to index batch: %w", err)
@@ -1538,7 +1582,7 @@ func testConnectionWithRetry(cfg *config.Config, reader *bufio.Reader) error {
 	fmt.Println()
 	printMuted(fmt.Sprintf("Connecting to %s...", cfg.GitLab.URL))
 
-	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout())
+	client, err := gitlab.New(cfg.GitLab.URL, cfg.GitLab.Token, cfg.GitLab.GetTimeout(), cfg.GitLab.Concurrency)
 	if err != nil {
 		return fmt.Errorf("failed to create GitLab client: %w", err)
 	}

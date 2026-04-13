@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/analysis/analyzer/simple"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/standard"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/search"
@@ -19,7 +20,7 @@ import (
 const (
 	// IndexVersion is the current version of the index schema
 	// Increment this when making breaking changes to the index structure
-	IndexVersion = 4 // Version 4: Added Member field
+	IndexVersion = 5 // Version 5: Path fields use simple analyzer
 
 	// Version metadata document ID (reserved, never used for actual projects)
 	versionDocID = "__index_version__"
@@ -161,16 +162,16 @@ func buildIndexMapping() mapping.IndexMapping {
 	// Document mapping for project descriptions
 	descMapping := bleve.NewDocumentMapping()
 
-	// ProjectPath: searchable text field for fuzzy/partial matching
+	// ProjectPath: simple analyzer preserves path components without stemming
 	pathFieldMapping := bleve.NewTextFieldMapping()
-	pathFieldMapping.Analyzer = standard.Name
+	pathFieldMapping.Analyzer = simple.Name
 	pathFieldMapping.Store = true
 	pathFieldMapping.Index = true
 	descMapping.AddFieldMappingsAt("ProjectPath", pathFieldMapping)
 
-	// ProjectName: text field (searchable)
+	// ProjectName: simple analyzer preserves exact tokens without stemming
 	nameFieldMapping := bleve.NewTextFieldMapping()
-	nameFieldMapping.Analyzer = standard.Name
+	nameFieldMapping.Analyzer = simple.Name
 	nameFieldMapping.Store = true
 	nameFieldMapping.Index = true
 	descMapping.AddFieldMappingsAt("ProjectName", nameFieldMapping)
