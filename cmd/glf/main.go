@@ -178,7 +178,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		if err := descIndex.Close(); err != nil {
 			logger.Debug("Failed to close index: %v", err)
 		}
-		if err := performSyncInternal(cfg, false, true); err != nil {
+		if err := performSyncInternal(cfg, jsonOutput, true); err != nil {
 			return fmt.Errorf("failed to rebuild index after schema update: %w", err)
 		}
 		// Reopen the index after sync
@@ -215,12 +215,19 @@ func runSearch(cmd *cobra.Command, args []string) error {
 			logger.Debug("Failed to close index: %v", err)
 		}
 
-		fmt.Println("First run detected - synchronizing projects from GitLab...")
-		fmt.Println()
-		if err := performSyncInternal(cfg, false, true); err != nil {
+		if !jsonOutput {
+			fmt.Println("First run detected - synchronizing projects from GitLab...")
+			fmt.Println()
+		}
+		if err := performSyncInternal(cfg, jsonOutput, true); err != nil {
+			if jsonOutput {
+				return outputJSONError(fmt.Sprintf("sync failed: %v", err))
+			}
 			return fmt.Errorf("sync failed: %w\n\nYou can try running 'glf --sync' manually", err)
 		}
-		fmt.Println()
+		if !jsonOutput {
+			fmt.Println()
+		}
 
 		// Reopen index after sync
 		descIndex, _, err = index.NewDescriptionIndexWithAutoRecreate(indexPath)
@@ -452,7 +459,14 @@ func runAutoGoWithSync(query string, cfg *config.Config, descIndex *index.Descri
 }
 
 // openBrowser opens the given URL in the default browser (cross-platform)
-func openBrowser(url string) error {
+func openBrowser(rawURL string) error {
+	// Validate URL before passing to subprocess
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return fmt.Errorf("invalid URL scheme (expected http/https): %s", rawURL)
+	}
+	safeURL := parsedURL.String()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -460,18 +474,15 @@ func openBrowser(url string) error {
 
 	switch runtime.GOOS {
 	case platformDarwin: // macOS
-		cmd = exec.CommandContext(ctx, "open", url)
+		cmd = exec.CommandContext(ctx, "open", safeURL)
 	case platformLinux:
-		cmd = exec.CommandContext(ctx, "xdg-open", url)
+		cmd = exec.CommandContext(ctx, "xdg-open", safeURL)
 	case platformWindows:
-		// Empty string before URL is important: start interprets first quoted arg as window title
-		cmd = exec.CommandContext(ctx, "cmd", "/c", "start", "", url)
+		cmd = exec.CommandContext(ctx, "cmd", "/c", "start", "", safeURL)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	// Use Run() instead of Start() to wait for the command to complete
-	// This ensures the browser actually opens before we return
 	return cmd.Run()
 }
 
@@ -480,7 +491,8 @@ func getGitRemoteURL(dir string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "-C", dir, "config", "--get", "remote.origin.url")
+	cleanDir := filepath.Clean(dir)
+	cmd := exec.CommandContext(ctx, "git", "-C", cleanDir, "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -1235,7 +1247,7 @@ func runConfigWizard() error {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Check if config exists
-	configPath := filepath.Join(os.Getenv("HOME"), ".config", "glf", "config.yaml")
+	configPath := filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "glf", "config.yaml"))
 	configExists := false
 	if _, err := os.Stat(configPath); err == nil {
 		configExists = true
@@ -1343,7 +1355,7 @@ func runConfigWizard() error {
 	}
 
 	// Step 6: Save configuration
-	configDir := filepath.Join(os.Getenv("HOME"), ".config", "glf")
+	configDir := filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "glf"))
 	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
