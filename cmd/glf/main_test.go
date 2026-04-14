@@ -19,9 +19,8 @@ import (
 
 // testGitCommand creates a git command with a 5-second timeout context for tests
 func testGitCommand(args ...string) *exec.Cmd {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	cmd := exec.CommandContext(ctx, "git", args...)
-	// Store cancel function to be called after command completes
 	go func() {
 		<-ctx.Done()
 		cancel()

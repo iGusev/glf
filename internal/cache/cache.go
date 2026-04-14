@@ -287,7 +287,7 @@ func (c *Cache) SaveProjectSets(starred, member map[string]bool) error {
 // LoadProjectSets loads cached starred and member project path sets
 // Returns nil maps if cache doesn't exist
 func (c *Cache) LoadProjectSets() (starred, member map[string]bool, err error) {
-	path := filepath.Join(c.dir, ".project_sets.json")
+	path := filepath.Clean(filepath.Join(c.dir, ".project_sets.json"))
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
