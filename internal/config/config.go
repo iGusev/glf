@@ -112,7 +112,7 @@ func expandPath(path string) string {
 
 // EnsureConfigDir ensures the config directory exists
 func EnsureConfigDir() error {
-	configDir := filepath.Join(os.Getenv("HOME"), ".config", "glf")
+	configDir := filepath.Clean(filepath.Join(os.Getenv("HOME"), ".config", "glf"))
 	return os.MkdirAll(configDir, 0750)
 }
 

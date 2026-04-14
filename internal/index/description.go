@@ -436,9 +436,9 @@ func (di *DescriptionIndex) GetAllProjects() ([]model.Project, error) {
 	}
 
 	// Request all documents with bounds checking for integer overflow
-	size := int(count)
-	if count > math.MaxInt {
-		size = math.MaxInt
+	size := math.MaxInt
+	if count <= uint64(math.MaxInt) {
+		size = int(count)
 	}
 	searchRequest := bleve.NewSearchRequestOptions(query, size, 0, false)
 	searchRequest.Fields = []string{"ProjectPath", "ProjectName", "Description", "Starred", "Archived", "Member"}
