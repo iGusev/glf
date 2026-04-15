@@ -73,28 +73,54 @@ func (c *Client) LastProjectSets() (starred, member map[string]bool) {
 // If membership is true, only fetches projects where the user is a member
 // Returns a slice of Project structs containing path, name, starred, and archived information
 func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Project, error) {
-	// Step 0: Fetch or reuse cached starred/member project sets
+	// Step 0: Fetch or reuse cached starred/member project sets — in parallel when both are needed
 	var starredProjects map[string]bool
-	if c.cachedStarred != nil {
-		logger.Debug("Using cached starred projects (%d entries)", len(c.cachedStarred))
-		starredProjects = c.cachedStarred
-	} else {
-		logger.Debug("Fetching starred projects...")
-		var err error
-		starredProjects, err = c.FetchStarredProjects()
-		if err != nil {
-			logger.Debug("Warning: failed to fetch starred projects: %v", err)
+	var memberProjects map[string]bool
+
+	needStarred := c.cachedStarred == nil
+	needMember := !membership && c.cachedMember == nil
+
+	if needStarred && needMember {
+		var starredErr, memberErr error
+		var wgSets sync.WaitGroup
+		wgSets.Add(2)
+		go func() {
+			defer wgSets.Done()
+			logger.Debug("Fetching starred projects...")
+			starredProjects, starredErr = c.FetchStarredProjects()
+		}()
+		go func() {
+			defer wgSets.Done()
+			logger.Debug("Fetching member projects...")
+			memberProjects, memberErr = c.FetchMemberProjects()
+		}()
+		wgSets.Wait()
+		if starredErr != nil {
+			logger.Debug("Warning: failed to fetch starred projects: %v", starredErr)
 			starredProjects = make(map[string]bool)
 		}
+		if memberErr != nil {
+			logger.Debug("Warning: failed to fetch member projects: %v", memberErr)
+			memberProjects = make(map[string]bool)
+		}
 		c.cachedStarred = starredProjects
-	}
+		c.cachedMember = memberProjects
+	} else {
+		if needStarred {
+			logger.Debug("Fetching starred projects...")
+			var err error
+			starredProjects, err = c.FetchStarredProjects()
+			if err != nil {
+				logger.Debug("Warning: failed to fetch starred projects: %v", err)
+				starredProjects = make(map[string]bool)
+			}
+			c.cachedStarred = starredProjects
+		} else if c.cachedStarred != nil {
+			logger.Debug("Using cached starred projects (%d entries)", len(c.cachedStarred))
+			starredProjects = c.cachedStarred
+		}
 
-	var memberProjects map[string]bool
-	if !membership {
-		if c.cachedMember != nil {
-			logger.Debug("Using cached member projects (%d entries)", len(c.cachedMember))
-			memberProjects = c.cachedMember
-		} else {
+		if needMember {
 			logger.Debug("Fetching member projects...")
 			var err error
 			memberProjects, err = c.FetchMemberProjects()
@@ -103,6 +129,9 @@ func (c *Client) FetchAllProjects(since *time.Time, membership bool) ([]model.Pr
 				memberProjects = make(map[string]bool)
 			}
 			c.cachedMember = memberProjects
+		} else if !membership && c.cachedMember != nil {
+			logger.Debug("Using cached member projects (%d entries)", len(c.cachedMember))
+			memberProjects = c.cachedMember
 		}
 	}
 

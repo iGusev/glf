@@ -254,14 +254,10 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return runAutoGo(query, cfg, descIndex)
 	}
 
-	// Going to interactive mode - close index explicitly before launching TUI
-	// (TUI background sync needs exclusive index access via file lock)
+	// Pass the open index to TUI — it keeps it open for fast per-keystroke search
+	// and manages the lifecycle (closing before sync, reopening after)
 	shouldCloseIndex = false
-	if err := descIndex.Close(); err != nil {
-		logger.Debug("Failed to close index: %v", err)
-	}
-	// Launch interactive TUI with optional initial query
-	return runInteractive(query, cfg)
+	return runInteractive(query, cfg, descIndex)
 }
 
 // backgroundSyncIfStale triggers a background sync if cache is older than 1 hour
@@ -761,7 +757,7 @@ func runRecordSelection(cfg *config.Config, projectPath, query string) error {
 }
 
 // runInteractive launches the interactive TUI with optional initial query
-func runInteractive(initialQuery string, cfg *config.Config) error {
+func runInteractive(initialQuery string, cfg *config.Config, descIndex *index.DescriptionIndex) error {
 	// Fetch current username for display in header
 	// Try to load from cache first
 	cacheManager := cache.New(cfg.Cache.Dir)
@@ -928,11 +924,17 @@ func runInteractive(initialQuery string, cfg *config.Config) error {
 		}
 	}
 
-	// Create and run the TUI with initial query, sync callback, cache dir for history, config, showScores flag, showHidden flag, username, and version
-	m := tui.New(nil, initialQuery, syncCallback, cfg.Cache.Dir, cfg, showScores, showHidden, username, version)
+	// Create and run the TUI with persistent index for fast search
+	m := tui.New(nil, initialQuery, syncCallback, cfg.Cache.Dir, cfg, showScores, showHidden, username, version, descIndex)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	finalModel, err := p.Run()
+
+	// Close the persistent index after TUI exits
+	if model, ok := finalModel.(tui.Model); ok {
+		model.CloseIndex()
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to run TUI: %w", err)
 	}
@@ -1404,11 +1406,8 @@ func runConfigWizard() error {
 	}
 	// Note: recreated flag ignored here - wizard already ran full sync above
 
-	// Close index before launching TUI (TUI needs exclusive access for background sync)
-	_ = descIndex.Close()
-
-	// Launch interactive TUI
-	return runInteractive("", cfg)
+	// Pass index directly to TUI — it manages the lifecycle
+	return runInteractive("", cfg, descIndex)
 }
 
 // maskToken masks a token for display, showing only first and last 4 characters

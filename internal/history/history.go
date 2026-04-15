@@ -2,13 +2,14 @@
 package history
 
 import (
-	"crypto/sha256"
 	"encoding/gob"
-	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,9 @@ type History struct {
 	querySelections map[string]map[string]SelectionInfo // Query-specific: queryHash -> projectPath -> info
 	filePath        string
 	dirty           bool // Indicates if there are unsaved changes
+
+	cachedGlobalScores   map[string]float64 // Cached global decay scores
+	globalScoresCachedAt time.Time          // When global scores were last computed
 }
 
 // New creates a new History instance with the given file path
@@ -209,6 +213,7 @@ func (h *History) RecordSelection(item string) {
 	info.Timestamps = append(info.Timestamps, time.Now())
 	h.selections[item] = info
 	h.dirty = true
+	h.cachedGlobalScores = nil
 }
 
 // calculateDecayMultiplier returns the exponential decay multiplier for the given age
@@ -460,13 +465,12 @@ func (h *History) CleanupOldEntries() int {
 
 // normalizeQuery normalizes a query string for consistent history tracking
 func normalizeQuery(query string) string {
-	// Lowercase, trim whitespace, collapse multiple spaces
 	normalized := strings.ToLower(strings.TrimSpace(query))
 	normalized = strings.Join(strings.Fields(normalized), " ")
 
-	// Hash the normalized query for compact storage
-	hash := sha256.Sum256([]byte(normalized))
-	return hex.EncodeToString(hash[:8]) // Use first 8 bytes (16 hex chars)
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(normalized))
+	return strconv.FormatUint(h.Sum64(), 36)
 }
 
 // RecordSelectionWithQuery records a selection with query context
@@ -495,6 +499,7 @@ func (h *History) RecordSelectionWithQuery(query, item string) {
 	}
 
 	h.dirty = true
+	h.cachedGlobalScores = nil
 }
 
 // GetScoreForQuery returns the score for an item considering query-specific history with exponential decay
@@ -547,18 +552,30 @@ func (h *History) GetAllScoresForQuery(query string) map[string]int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	scores := make(map[string]float64)
+	// Reuse cached global scores if computed within the last 5 seconds
 	now := time.Now()
-
-	// Add global scores with exponential decay
-	for item, info := range h.selections {
-		for _, timestamp := range info.Timestamps {
-			daysSinceUse := now.Sub(timestamp).Hours() / 24
-			decayMultiplier := calculateDecayMultiplier(daysSinceUse)
-			if decayMultiplier > 0 {
-				scores[item] += 1.0 * decayMultiplier
+	const globalCacheTTL = 5 * time.Second
+	if h.cachedGlobalScores == nil || now.Sub(h.globalScoresCachedAt) > globalCacheTTL {
+		h.cachedGlobalScores = make(map[string]float64, len(h.selections))
+		for item, info := range h.selections {
+			var score float64
+			for _, timestamp := range info.Timestamps {
+				daysSinceUse := now.Sub(timestamp).Hours() / 24
+				decayMultiplier := calculateDecayMultiplier(daysSinceUse)
+				if decayMultiplier > 0 {
+					score += decayMultiplier
+				}
+			}
+			if score > 0 {
+				h.cachedGlobalScores[item] = score
 			}
 		}
+		h.globalScoresCachedAt = now
+	}
+
+	scores := make(map[string]float64, len(h.cachedGlobalScores))
+	for item, score := range h.cachedGlobalScores {
+		scores[item] = score
 	}
 
 	// Add query-specific boosts with exponential decay
@@ -577,17 +594,12 @@ func (h *History) GetAllScoresForQuery(query string) map[string]int {
 		}
 	}
 
-	// Cap at 30 to prevent extreme dominance
 	const maxHistoryScore = 30
-	for item, score := range scores {
-		if score > maxHistoryScore {
-			scores[item] = maxHistoryScore
-		}
-	}
-
-	// Convert to int map
 	intScores := make(map[string]int, len(scores))
 	for item, score := range scores {
+		if score > maxHistoryScore {
+			score = maxHistoryScore
+		}
 		intScores[item] = int(score)
 	}
 
@@ -652,15 +664,9 @@ func (h *History) GetAllEntries() []Entry {
 		})
 	}
 
-	// Sort by score descending (highest first)
-	// Using simple bubble sort for small datasets
-	for i := 0; i < len(entries)-1; i++ {
-		for j := 0; j < len(entries)-i-1; j++ {
-			if entries[j].Score < entries[j+1].Score {
-				entries[j], entries[j+1] = entries[j+1], entries[j]
-			}
-		}
-	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Score > entries[j].Score
+	})
 
 	return entries
 }

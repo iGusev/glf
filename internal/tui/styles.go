@@ -267,6 +267,34 @@ func (cs *ColorScheme) GetStyles() Styles {
 
 		Help: lipgloss.NewStyle().
 			Foreground(cs.Help),
+
+		// Pre-computed styles for starred/hidden rendering
+		StarredText: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FDB515")),
+		StarredHighlight: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FDB515")).Bold(true),
+		StarredHeart: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FDB515")),
+		StarredScore: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FDB515")),
+		StarredSnippet: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#9B8B5E")).Italic(true),
+
+		HiddenStarredText: lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#B8A687", Dark: "#6B5D3F"}),
+		HiddenStarredHighlight: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#B8A687")).Bold(true),
+		HiddenStarredHeart: lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#B8A687", Dark: "#6B5D3F"}),
+		HiddenStarredScore: lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#B8A687", Dark: "#6B5D3F"}),
+		HiddenStarredSnippet: lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#998F76", Dark: "#4A4332"}).Italic(true),
+
+		HiddenSnippet: lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#B8B8B8", Dark: "#4A4A4A"}).Italic(true),
+		ScoreText: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")),
 	}
 }
 
@@ -289,4 +317,18 @@ type Styles struct {
 	StatusError     lipgloss.Style
 	StatusIdle      lipgloss.Style
 	Help            lipgloss.Style
+
+	// Pre-computed styles for starred/hidden rendering (avoids per-render allocations)
+	StarredText            lipgloss.Style // Gold text for starred projects
+	StarredHighlight       lipgloss.Style // Gold highlight for starred fuzzy matches
+	StarredHeart           lipgloss.Style // Gold heart icon
+	StarredScore           lipgloss.Style // Gold score text
+	StarredSnippet         lipgloss.Style // Muted gold snippet
+	HiddenStarredText      lipgloss.Style // Pale gold text for hidden starred
+	HiddenStarredHighlight lipgloss.Style // Pale gold highlight
+	HiddenStarredHeart     lipgloss.Style // Pale gold heart icon
+	HiddenStarredScore     lipgloss.Style // Pale gold score text
+	HiddenStarredSnippet   lipgloss.Style // Very muted pale gold snippet
+	HiddenSnippet          lipgloss.Style // Very muted snippet for hidden non-starred
+	ScoreText              lipgloss.Style // Gray score text (non-starred)
 }

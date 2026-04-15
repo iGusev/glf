@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -30,37 +31,52 @@ type HistoryLoadedMsg struct {
 	Err error
 }
 
+// debounceTickMsg is sent after a debounce delay to trigger filtering
+type debounceTickMsg struct {
+	version int
+}
+
+// indexReopenedMsg is sent when the index has been reopened after sync
+type indexReopenedMsg struct {
+	descIndex *index.DescriptionIndex
+	err       error
+}
+
 // Model represents the TUI state
 type Model struct {
-	textInput      textinput.Model       // Search input field
-	styles         Styles                // Pre-configured styles
-	projects       []model.Project       // All projects (full list)
-	filtered       []index.CombinedMatch // Filtered projects with match data (fuzzy + description)
-	selected       string                // Selected project path (when user presses Enter)
-	cacheDir       string                // Cache directory for description index
-	gitlabURL      string                // GitLab server URL (for header display)
-	username       string                // GitLab username (for header display)
-	version        string                // Application version
-	syncError      error                 // Sync error if any
-	history        *history.History      // Selection frequency tracker
-	config         *config.Config        // Application config (for exclusions)
-	colorScheme    *ColorScheme          // Adaptive color scheme
-	onSync         func() tea.Cmd        // Callback to trigger sync
-	cursor         int                   // Current cursor position in filtered list
-	viewportStart  int                   // Index of first visible item in viewport
-	width          int                   // Terminal width
-	height         int                   // Terminal height
-	quitting       bool                  // Whether user is quitting
-	syncing        bool                  // Whether sync is in progress
-	autoSync       bool                  // Whether to auto-sync on start
-	historyLoading bool                  // Whether history is being loaded
-	showHidden     bool                  // Whether to show hidden projects (excluded, archived, non-member)
-	showScores     bool                  // Whether to show score breakdown
-	showHelp       bool                  // Whether to show help text
+	textInput      textinput.Model              // Search input field
+	styles         Styles                       // Pre-configured styles
+	projects       []model.Project              // All projects (full list)
+	filtered       []index.CombinedMatch        // Filtered projects with match data (fuzzy + description)
+	selected       string                       // Selected project path (when user presses Enter)
+	cacheDir       string                       // Cache directory for description index
+	gitlabURL      string                       // GitLab server URL (for header display)
+	username       string                       // GitLab username (for header display)
+	version        string                       // Application version
+	syncError      error                        // Sync error if any
+	history        *history.History              // Selection frequency tracker
+	config         *config.Config               // Application config (for exclusions)
+	colorScheme    *ColorScheme                 // Adaptive color scheme
+	descIndex          *index.DescriptionIndex  // Persistent Bleve index (kept open during session)
+	cachedEmptyResults []index.CombinedMatch   // Cached results for empty query (all projects sorted by history)
+	onSync             func() tea.Cmd          // Callback to trigger sync
+	cursor             int                     // Current cursor position in filtered list
+	viewportStart      int                     // Index of first visible item in viewport
+	width              int                     // Terminal width
+	height             int                     // Terminal height
+	filterVersion      int                     // Monotonic counter for keystroke debouncing
+	emptyResultsCached bool                    // Whether cachedEmptyResults is valid
+	quitting       bool                         // Whether user is quitting
+	syncing        bool                         // Whether sync is in progress
+	autoSync       bool                         // Whether to auto-sync on start
+	historyLoading bool                         // Whether history is being loaded
+	showHidden     bool                         // Whether to show hidden projects (excluded, archived, non-member)
+	showScores     bool                         // Whether to show score breakdown
+	showHelp       bool                         // Whether to show help text
 }
 
 // New creates a new TUI model with the given projects and optional initial query
-func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, cacheDir string, cfg *config.Config, showScores bool, showHidden bool, username string, version string) Model {
+func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, cacheDir string, cfg *config.Config, showScores bool, showHidden bool, username string, version string, descIndex *index.DescriptionIndex) Model {
 	// Initialize color scheme
 	colorScheme := NewColorScheme()
 	styles := colorScheme.GetStyles()
@@ -107,8 +123,9 @@ func New(projects []model.Project, initialQuery string, onSync func() tea.Cmd, c
 		styles:         styles,
 		gitlabURL:      gitlabURL,
 		username:       username,
-		version:        version, // Injected from build-time ldflags
-		showHelp:       false,   // Hide help by default
+		version:        version,   // Injected from build-time ldflags
+		descIndex:      descIndex, // Persistent index for fast search
+		showHelp:       false,     // Hide help by default
 	}
 
 	// Always apply filter on initialization to respect exclusions
@@ -166,6 +183,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.onSync != nil && !m.syncing {
 				m.syncing = true
 				m.syncError = nil
+				// Close index to allow sync exclusive access
+				if m.descIndex != nil {
+					_ = m.descIndex.Close()
+					m.descIndex = nil
+				}
 				return m, m.onSync()
 			}
 
@@ -205,9 +227,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						// Silently fail - don't prevent UI operation
 					}
 				}
-				// Re-filter to apply changes
+				m.emptyResultsCached = false
 				m.filter()
-				// Adjust cursor and viewport if needed
 				if m.cursor >= len(m.filtered) && m.cursor > 0 {
 					m.cursor = len(m.filtered) - 1
 				}
@@ -215,8 +236,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "ctrl+h":
-			// Toggle showing hidden projects (excluded, archived, non-member)
 			m.showHidden = !m.showHidden
+			m.emptyResultsCached = false
 			m.filter()
 			// Reset cursor and viewport
 			if m.cursor >= len(m.filtered) && m.cursor > 0 {
@@ -254,11 +275,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		default:
-			// Update text input and filter
+			// Update text input
+			prevValue := m.textInput.Value()
 			m.textInput, cmd = m.textInput.Update(msg)
-			m.filter()
-			m.cursor = 0        // Reset cursor when query changes
-			m.viewportStart = 0 // Reset viewport when query changes
+
+			// Only debounce filter if text actually changed
+			if m.textInput.Value() != prevValue {
+				m.cursor = 0
+				m.viewportStart = 0
+				m.filterVersion++
+				currentVersion := m.filterVersion
+				tickCmd := tea.Tick(150*time.Millisecond, func(_ time.Time) tea.Msg {
+					return debounceTickMsg{version: currentVersion}
+				})
+				cmd = tea.Batch(cmd, tickCmd)
+			}
 		}
 
 	case autoSyncMsg:
@@ -266,27 +297,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.onSync != nil && !m.syncing {
 			m.syncing = true
 			m.syncError = nil
+			// Close index to allow sync exclusive access
+			if m.descIndex != nil {
+				_ = m.descIndex.Close()
+				m.descIndex = nil
+			}
 			return m, m.onSync()
 		}
 
 	case SyncCompleteMsg:
 		m.syncing = false
+		m.emptyResultsCached = false
 		if msg.Err != nil {
 			m.syncError = msg.Err
 		} else {
-			// Update projects list
 			m.projects = msg.Projects
-			m.filter()
 			m.syncError = nil
+		}
+		// Reopen index after sync (regardless of success/failure)
+		cacheDir := m.cacheDir
+		return m, func() tea.Msg {
+			indexPath := filepath.Join(cacheDir, "description.bleve")
+			di, _, err := index.NewDescriptionIndexWithAutoRecreate(indexPath)
+			return indexReopenedMsg{descIndex: di, err: err}
+		}
+
+	case indexReopenedMsg:
+		if msg.err == nil {
+			m.descIndex = msg.descIndex
+		}
+		m.filter()
+
+	case debounceTickMsg:
+		if msg.version == m.filterVersion {
+			m.filter()
 		}
 
 	case HistoryLoadedMsg:
 		m.historyLoading = false
+		m.emptyResultsCached = false
 		if msg.Err != nil {
 			// Log error but don't fail - history is optional
-			// Could add error display here if needed
 		} else {
-			// Re-filter with history loaded
 			m.filter()
 		}
 
@@ -310,11 +362,22 @@ func (m *Model) filter() {
 		historyScores = make(map[string]int)
 	}
 
-	// Use combined search (Bleve unified search)
-	allMatches, err := search.CombinedSearch(query, m.projects, historyScores, m.cacheDir)
+	// For empty queries, use cached results if available
+	if query == "" && m.emptyResultsCached {
+		m.filtered = m.cachedEmptyResults
+		return
+	}
+
+	var allMatches []index.CombinedMatch
+	var err error
+	if m.descIndex != nil {
+		allMatches, err = search.CombinedSearchWithIndex(query, m.projects, historyScores, m.cacheDir, m.descIndex)
+	} else if m.syncing {
+		return
+	} else {
+		allMatches, err = search.CombinedSearch(query, m.projects, historyScores, m.cacheDir)
+	}
 	if err != nil {
-		// Search failed - show empty results
-		// User should run 'glf sync' to build/rebuild the index
 		allMatches = []index.CombinedMatch{}
 	}
 
@@ -342,6 +405,11 @@ func (m *Model) filter() {
 	}
 
 	m.filtered = filtered
+
+	if query == "" {
+		m.cachedEmptyResults = filtered
+		m.emptyResultsCached = true
+	}
 }
 
 // ensureCursorVisible adjusts viewportStart if cursor is not visible in viewport
@@ -382,93 +450,68 @@ func (m *Model) ensureCursorVisible(maxAvailableLines int) {
 }
 
 // renderMatch renders a matched project with visual indicators and optional snippet
-// Returns multiple lines if snippet is present and item is selected
-func renderMatch(match index.CombinedMatch, style lipgloss.Style, highlightStyle lipgloss.Style, snippetStyle lipgloss.Style, excludedStarredStyle lipgloss.Style, query string, showScores bool, isHidden bool) string {
+// Uses pre-computed styles from the Styles struct to avoid per-render allocations
+func renderMatch(match index.CombinedMatch, s Styles, query string, showScores bool, isHidden bool) string {
 	var result strings.Builder
 
-	// For starred projects, use gold color (or pale gold if hidden)
-	goldColor := lipgloss.Color("#FDB515")     // California Gold (normal)
-	paleGoldColor := lipgloss.Color("#B8A687") // Pale gold for light theme (hidden starred)
-	mutedGoldDark := lipgloss.Color("#6B5D3F") // Muted gold for dark theme (hidden starred)
+	style := lipgloss.NewStyle()
+	highlightStyle := s.Highlight
+	snippetStyle := s.Snippet
 
 	if match.Project.Starred {
-		var heartStyle lipgloss.Style
 		if isHidden {
-			// Hidden starred: use pale gold
-			style = excludedStarredStyle
-			highlightStyle = highlightStyle.Foreground(paleGoldColor).Bold(true)
-			heartStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: string(paleGoldColor), Dark: string(mutedGoldDark)})
+			style = s.HiddenStarredText
+			highlightStyle = s.HiddenStarredHighlight
+			result.WriteString(s.HiddenStarredHeart.Render("❤ "))
 		} else {
-			// Normal starred: use bright gold
-			style = style.Foreground(goldColor)
-			highlightStyle = highlightStyle.Foreground(goldColor).Bold(true)
-			heartStyle = lipgloss.NewStyle().Foreground(goldColor)
+			style = s.StarredText
+			highlightStyle = s.StarredHighlight
+			result.WriteString(s.StarredHeart.Render("❤ "))
 		}
-		result.WriteString(heartStyle.Render("❤ "))
 	}
 
-	// Get display string
 	displayStr := match.Project.DisplayString()
 
-	// Render project name with highlighting if matched by name
 	if match.Source&index.MatchSourceName != 0 {
-		// Fuzzy match - need to compute and highlight matched positions
 		result.WriteString(renderFuzzyMatch(displayStr, query, style, highlightStyle))
 	} else {
-		// Description-only match - no highlighting
 		result.WriteString(style.Render(displayStr))
 	}
 
-	// Add score breakdown if requested
 	if showScores {
-		scoreStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241")) // Gray
+		var scoreStyle lipgloss.Style
 		if match.Project.Starred {
 			if isHidden {
-				scoreStyle = scoreStyle.Foreground(lipgloss.AdaptiveColor{Light: string(paleGoldColor), Dark: string(mutedGoldDark)})
+				scoreStyle = s.HiddenStarredScore
 			} else {
-				scoreStyle = scoreStyle.Foreground(goldColor)
+				scoreStyle = s.StarredScore
 			}
+		} else {
+			scoreStyle = s.ScoreText
 		}
-		// Show starred bonus separately if present
 		if match.StarredBonus > 0 {
 			scoreText := fmt.Sprintf(" [S:%.3f H:%d St:%d T:%.2f]",
-				match.SearchScore,
-				match.HistoryScore,
-				match.StarredBonus,
-				match.TotalScore)
+				match.SearchScore, match.HistoryScore, match.StarredBonus, match.TotalScore)
 			result.WriteString(scoreStyle.Render(scoreText))
 		} else {
 			scoreText := fmt.Sprintf(" [S:%.3f H:%d T:%.2f]",
-				match.SearchScore,
-				match.HistoryScore,
-				match.TotalScore)
+				match.SearchScore, match.HistoryScore, match.TotalScore)
 			result.WriteString(scoreStyle.Render(scoreText))
 		}
 	}
 
-	// Add snippet if available (description match) - always show if present
 	if match.Snippet != "" {
-		// Truncate snippet to 60 runes at word boundary for UTF-8 safety
 		snippet := truncateSnippet(match.Snippet, 60)
-		result.WriteString("\n") // Newline for snippet (indent handled by caller)
+		result.WriteString("\n")
 
 		if match.Project.Starred {
-			// Use muted gold color for snippet if starred (to distinguish from main text)
 			if isHidden {
-				// Hidden starred: use even more muted pale gold for snippet
-				snippetPaleGold := lipgloss.Color("#998F76")  // Very muted pale gold for light
-				snippetMutedDark := lipgloss.Color("#4A4332") // Very muted dark gold for dark
-				snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetPaleGold), Dark: string(snippetMutedDark)})
+				snippetStyle = s.HiddenStarredSnippet
 			} else {
-				// Normal starred: use muted gold
-				mutedGold := lipgloss.Color("#9B8B5E") // More grey-ish gold, less saturated
-				snippetStyle = snippetStyle.Foreground(mutedGold)
+				snippetStyle = s.StarredSnippet
 			}
 		} else if isHidden {
-			// Hidden non-starred: use even more muted gray for snippet (barely visible)
-			snippetHiddenLight := lipgloss.Color("#B8B8B8") // Very muted gray for light
-			snippetHiddenDark := lipgloss.Color("#4A4A4A")  // Very muted gray for dark
-			snippetStyle = snippetStyle.Foreground(lipgloss.AdaptiveColor{Light: string(snippetHiddenLight), Dark: string(snippetHiddenDark)})
+			snippetStyle = s.HiddenSnippet
 		}
 		result.WriteString(snippetStyle.Render(snippet))
 	}
@@ -650,7 +693,7 @@ func (m Model) View() string {
 
 		// Render project name (with visual indicators and optional snippet)
 		query := strings.TrimSpace(m.textInput.Value())
-		projectContent := renderMatch(match, lipgloss.NewStyle(), m.styles.Highlight, m.styles.Snippet, m.styles.ExcludedStarred, query, m.showScores, isHidden)
+		projectContent := renderMatch(match, m.styles, query, m.showScores, isHidden)
 
 		// Split content by lines to apply background to each line separately
 		lines := strings.Split(projectContent, "\n")
@@ -718,6 +761,13 @@ func (m Model) View() string {
 // Selected returns the selected project (or empty string if none)
 func (m Model) Selected() string {
 	return m.selected
+}
+
+// CloseIndex closes the persistent Bleve index if it is open
+func (m Model) CloseIndex() {
+	if m.descIndex != nil {
+		_ = m.descIndex.Close()
+	}
 }
 
 // truncateSnippet truncates text at word boundary respecting UTF-8

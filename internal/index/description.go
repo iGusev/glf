@@ -109,31 +109,24 @@ func NewDescriptionIndex(indexPath string) (*DescriptionIndex, error) {
 // For multiple tokens: returns ConjunctionQuery(AND) of DisjunctionQuery for each token
 func buildFieldQuery(tokens []string, field string, boost float64) query.Query {
 	if len(tokens) == 0 {
-		// Empty query - return match nothing
 		return bleve.NewMatchNoneQuery()
 	}
 
 	if len(tokens) == 1 {
-		// Single token - combine fuzzy match + prefix match
-		// MatchQuery: handles exact matches and typos (e.g., "tmeplate" → "template")
 		matchQ := bleve.NewMatchQuery(tokens[0])
 		matchQ.SetField(field)
-		matchQ.SetFuzziness(1) // Allow 1 edit distance for typo tolerance
+		matchQ.SetFuzziness(1)
 
-		// PrefixQuery: handles partial matches (e.g., "templa" → "template")
 		prefixQ := bleve.NewPrefixQuery(tokens[0])
 		prefixQ.SetField(field)
 
-		// Combine with OR logic (either fuzzy or prefix match)
 		disjunction := bleve.NewDisjunctionQuery(matchQ, prefixQ)
 		disjunction.SetBoost(boost)
 		return disjunction
 	}
 
-	// Multiple tokens - require ALL tokens (AND logic)
-	tokenQueries := make([]query.Query, 0, len(tokens))
-	for _, token := range tokens {
-		// Each token gets fuzzy + prefix treatment
+	tokenQueries := make([]query.Query, len(tokens))
+	for i, token := range tokens {
 		matchQ := bleve.NewMatchQuery(token)
 		matchQ.SetField(field)
 		matchQ.SetFuzziness(1)
@@ -141,12 +134,9 @@ func buildFieldQuery(tokens []string, field string, boost float64) query.Query {
 		prefixQ := bleve.NewPrefixQuery(token)
 		prefixQ.SetField(field)
 
-		// OR for this token
-		tokenDisjunction := bleve.NewDisjunctionQuery(matchQ, prefixQ)
-		tokenQueries = append(tokenQueries, tokenDisjunction)
+		tokenQueries[i] = bleve.NewDisjunctionQuery(matchQ, prefixQ)
 	}
 
-	// Combine with AND logic (all tokens must be present)
 	conjunctionQuery := bleve.NewConjunctionQuery(tokenQueries...)
 	conjunctionQuery.SetBoost(boost)
 	return conjunctionQuery
@@ -257,7 +247,7 @@ func (di *DescriptionIndex) Search(query string, maxResults int) ([]DescriptionM
 	// Description: lowest priority (1x boost)
 	descQuery := buildFieldQuery(tokens, "Description", 1.0)
 
-	// Add MatchQuery for description as fallback (tokenized full-text)
+	// Fallback: full-query MatchQuery on Description (standard analyzer handles tokenization differently)
 	descriptionMatch := bleve.NewMatchQuery(query)
 	descriptionMatch.SetField("Description")
 	descriptionMatch.SetBoost(1.0)

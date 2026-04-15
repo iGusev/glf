@@ -7,11 +7,6 @@ import (
 func TestNewColorScheme(t *testing.T) {
 	cs := NewColorScheme()
 
-	if cs == nil {
-		t.Fatal("Expected NewColorScheme to return non-nil ColorScheme")
-	}
-
-	// Check that GitLabWave is set (should contain wave emoji)
 	if cs.GitLabWave == "" {
 		t.Error("Expected GitLabWave to be non-empty")
 	}
@@ -57,12 +52,6 @@ func TestColorScheme_MultipleInstances(t *testing.T) {
 	cs1 := NewColorScheme()
 	cs2 := NewColorScheme()
 
-	// Both should be initialized
-	if cs1 == nil || cs2 == nil {
-		t.Fatal("Expected both color schemes to be non-nil")
-	}
-
-	// Both should have the same GitLabWave (deterministic)
 	if cs1.GitLabWave != cs2.GitLabWave {
 		t.Error("Expected GitLabWave to be consistent across instances")
 	}
