@@ -472,8 +472,10 @@ func openBrowser(rawURL string) error {
 
 	var cmd *exec.Cmd
 
+	// #nosec G204 -- Command binaries are hardcoded; safeURL is validated via url.Parse
+	// and re-serialized (scheme restricted to http/https, no shell metacharacters)
 	switch runtime.GOOS {
-	case platformDarwin: // macOS
+	case platformDarwin:
 		cmd = exec.CommandContext(ctx, "open", safeURL)
 	case platformLinux:
 		cmd = exec.CommandContext(ctx, "xdg-open", safeURL)
@@ -492,6 +494,7 @@ func getGitRemoteURL(dir string) (string, error) {
 	defer cancel()
 
 	cleanDir := filepath.Clean(dir)
+	// #nosec G204 -- Command is hardcoded "git"; cleanDir is sanitized via filepath.Clean
 	cmd := exec.CommandContext(ctx, "git", "-C", cleanDir, "config", "--get", "remote.origin.url")
 	output, err := cmd.Output()
 	if err != nil {
